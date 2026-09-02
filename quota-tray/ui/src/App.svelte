@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import Hero from "./lib/components/Hero.svelte";
   import ProviderRow from "./lib/components/ProviderRow.svelte";
   import { fetchTrayState, onTrayStateUpdated } from "./lib/api";
@@ -25,14 +26,27 @@
     }).then((u) => {
       unlisten = u;
     });
-    return () => unlisten?.();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        void getCurrentWindow().hide();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      unlisten?.();
+      window.removeEventListener("keydown", onKey);
+    };
   });
 
-  const staleGlobal = $derived(
+  const hasAnyReading = $derived(
     !!state &&
-      (state.providers.length === 0 ||
-        state.providers.every((p) => p.stale) ||
-        state.shared_mascot_fill == null)
+      state.providers.some(
+        (p) => p.headline_percent != null || p.windows.length > 0
+      )
+  );
+  const staleGlobal = $derived(
+    !!state && hasAnyReading && state.providers.every((p) => p.stale)
   );
 </script>
 
