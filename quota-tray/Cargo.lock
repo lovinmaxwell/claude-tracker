@@ -2610,6 +2610,7 @@ dependencies = [
  "dirs",
  "quota_tray_core",
  "reqwest 0.12.28",
+ "secrecy",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -2693,6 +2694,7 @@ dependencies = [
 name = "quota-tray"
 version = "0.1.0"
 dependencies = [
+ "parking_lot",
  "provider_claude",
  "quota_tray_core",
  "serde",
@@ -2700,6 +2702,8 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-shell",
+ "time",
+ "tokio",
 ]
 
 [[package]]
@@ -3593,6 +3597,7 @@ dependencies = [
  "gtk",
  "heck 0.5.0",
  "http",
+ "image",
  "jni",
  "libc",
  "log",

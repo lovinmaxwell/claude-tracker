@@ -10,12 +10,16 @@
     "frontendDist": "../ui/dist"
   },
   "app": {
+    "withGlobalTauri": false,
     "windows": [
       {
+        "label": "main",
         "title": "Quota Tray",
         "width": 360,
         "height": 480,
-        "resizable": true
+        "decorations": false,
+        "resizable": false,
+        "visible": false
       }
     ],
     "security": {

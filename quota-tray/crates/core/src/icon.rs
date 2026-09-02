@@ -146,3 +146,13 @@ pub fn render_mascot_png(
         .map_err(|e: ImageError| IconError::Encode(e.to_string()))?;
     Ok(cursor.into_inner())
 }
+
+/// Tray-sized mascot PNG from [`TrayState::shared_mascot_fill`].
+///
+/// Thin alias over [`render_mascot_png`] for the Tauri poll loop.
+pub fn paint_tray_icon(state: &crate::types::TrayState) -> Vec<u8> {
+    const TRAY_PIXEL_SIZE: u32 = 32;
+    render_mascot_png(state.shared_mascot_fill, TRAY_PIXEL_SIZE).unwrap_or_else(|_| {
+        render_mascot_png(None, TRAY_PIXEL_SIZE).expect("encode empty mascot png")
+    })
+}
