@@ -1,0 +1,11 @@
+[package]
+name = "provider_claude"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+quota_tray_core = { path = "../core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
