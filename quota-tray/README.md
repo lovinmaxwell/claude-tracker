@@ -14,7 +14,7 @@ Quota Tray is **local-only**:
 | --- | --- |
 | Claude Code OAuth token | macOS Keychain service `Claude Code-credentials` (or `~/.claude/.credentials.json`) — sent only to Anthropic |
 | Cursor access token | `state.vscdb` key `cursorAuth/accessToken` — sent only to Cursor |
-| GitHub Copilot OAuth | `~/.config/github-copilot/apps.json` (`oauth_token`) — sent only to GitHub |
+| GitHub Copilot OAuth | `~/.config/github-copilot/apps.json` or legacy `hosts.json` (`oauth_token`) — sent only to GitHub |
 
 Rules:
 
@@ -32,7 +32,7 @@ These endpoints are **not** public SLA APIs. Vendors can change or remove them. 
 | --- | --- | --- |
 | Claude Code | `GET https://api.anthropic.com/api/oauth/usage` | Bearer OAuth + `anthropic-beta: oauth-2025-04-20` |
 | Cursor | `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage` | Bearer JWT from `state.vscdb` |
-| Copilot | `GET https://api.github.com/copilot_internal/user` | Bearer `gho_*` from Copilot `apps.json` |
+| Copilot | `GET https://api.github.com/copilot_internal/user` | Bearer `gho_*` from Copilot `apps.json` / `hosts.json` |
 
 Using Quota Tray means you accept that these are the same *class* of client calls vendor apps make, with **no warranty**, and account/ToS risk is yours.
 
@@ -61,7 +61,7 @@ First launch:
 3. Sign in to Cursor and GitHub Copilot in their official apps first so local tokens exist.
 4. Quit the older **Claude Tracker** (Laravel/NativePHP) once Quota Tray’s Claude row is healthy to avoid double polling.
 
-Panel: click the menubar icon. Esc / click away dismisses (when wired). Poll interval default **60s** (settings clamp **60–120**).
+Panel: click the menubar icon. Esc hides the panel. Poll interval default **60s** (settings clamp **60–120**).
 
 ## Build
 

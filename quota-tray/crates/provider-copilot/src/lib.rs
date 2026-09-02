@@ -1,10 +1,13 @@
-//! GitHub Copilot credentials (`apps.json`) + `copilot_internal/user` fetch.
+//! GitHub Copilot credentials (`apps.json` / legacy `hosts.json`) + `copilot_internal/user` fetch.
 
 mod credentials;
 mod fetch;
 mod headline;
 
-pub use credentials::{default_apps_json_path, parse_apps_json, read_apps_json};
+pub use credentials::{
+    default_apps_json_path, default_hosts_json_path, parse_apps_json, parse_hosts_json,
+    read_apps_json, read_copilot_credentials,
+};
 pub use fetch::{parse_copilot_user, CopilotClient};
 pub use headline::copilot_headline_percent;
 
@@ -33,7 +36,7 @@ impl Provider for CopilotProvider {
     }
 
     fn credentials(&self) -> Result<Credentials, CredentialError> {
-        read_apps_json(&self.apps_json_path)
+        read_copilot_credentials(&self.apps_json_path)
     }
 
     fn fetch(&self, creds: &Credentials) -> Result<ProviderSnapshot, FetchError> {
