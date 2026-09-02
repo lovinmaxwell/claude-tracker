@@ -8,7 +8,19 @@ use quota_tray_core::{
 };
 use secrecy::{ExposeSecret, SecretString};
 use std::process::Command;
+use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static CLAUDE_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+
+fn claude_runtime() -> &'static tokio::runtime::Runtime {
+    CLAUDE_RUNTIME.get_or_init(|| {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("claude provider tokio runtime")
+    })
+}
 
 /// Claude Code usage provider: Keychain/file creds + Anthropic OAuth usage.
 #[derive(Clone, Debug)]
@@ -46,11 +58,7 @@ impl Provider for ClaudeProvider {
         let token = creds.raw.expose_secret().to_string();
         let base = self.api_base.clone();
         let headline = self.headline.clone();
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| FetchError::Network(e.to_string()))?
-            .block_on(fetch_claude_usage(&base, &token, headline))
+        claude_runtime().block_on(fetch_claude_usage(&base, &token, headline))
     }
 }
 

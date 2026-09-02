@@ -1,5 +1,5 @@
 use crate::state::AppState;
-use quota_tray_core::paint_tray_icon;
+use quota_tray_core::{paint_tray_icon, Poller};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::tray::TrayIcon;
@@ -12,10 +12,15 @@ pub fn spawn_poll_loop(app: AppHandle, state: Arc<AppState>) {
                 let cfg = state.config.read();
                 cfg.poll_interval_secs.clamp(60, 120)
             };
-            // Poller filters by registered providers (enabled set at construction).
+            // Clone provider handles under a brief lock; network fetch runs unlocked.
+            let providers = {
+                let poller = state.poller.lock();
+                poller.providers()
+            };
+            let results = Poller::fetch_providers(&providers);
             let tick = {
                 let mut poller = state.poller.lock();
-                poller.tick()
+                poller.apply_fetch_results(results)
             };
             {
                 let mut guard = state.tray_state.write();

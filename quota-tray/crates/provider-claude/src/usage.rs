@@ -2,8 +2,15 @@ use quota_tray_core::{
     ClaudeHeadlineMetric, FetchError, ProviderId, ProviderSnapshot, UsageWindow, WindowKind,
 };
 use serde::Deserialize;
+use std::sync::OnceLock;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+
+static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn http_client() -> &'static reqwest::Client {
+    HTTP_CLIENT.get_or_init(reqwest::Client::new)
+}
 
 pub const DEFAULT_API_BASE: &str = "https://api.anthropic.com";
 pub const USAGE_PATH: &str = "/api/oauth/usage";
@@ -73,8 +80,7 @@ pub async fn fetch_claude_usage(
     headline: ClaudeHeadlineMetric,
 ) -> Result<ProviderSnapshot, FetchError> {
     let url = format!("{}{}", base_url.trim_end_matches('/'), USAGE_PATH);
-    let client = reqwest::Client::new();
-    let response = client
+    let response = http_client()
         .get(&url)
         .header("Authorization", format!("Bearer {access_token}"))
         .header("anthropic-beta", ANTHROPIC_BETA_OAUTH)

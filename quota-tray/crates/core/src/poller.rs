@@ -3,10 +3,11 @@ use crate::config::clamp_poll_interval_secs;
 use crate::provider::Provider;
 use crate::types::{ProviderId, ProviderSnapshot, TrayState};
 use std::collections::HashMap;
+use std::sync::Arc;
 use time::OffsetDateTime;
 
 pub struct Poller {
-    providers: Vec<Box<dyn Provider>>,
+    providers: Arc<Vec<Arc<dyn Provider>>>,
     interval_secs: u64,
     last: HashMap<ProviderId, ProviderSnapshot>,
     last_mascot: Option<f64>,
@@ -15,7 +16,12 @@ pub struct Poller {
 impl Poller {
     pub fn new(providers: Vec<Box<dyn Provider>>, poll_interval_secs: u64) -> Self {
         Self {
-            providers,
+            providers: Arc::new(
+                providers
+                    .into_iter()
+                    .map(|provider| Arc::from(provider) as Arc<dyn Provider>)
+                    .collect(),
+            ),
             interval_secs: clamp_poll_interval_secs(poll_interval_secs),
             last: HashMap::new(),
             last_mascot: None,
@@ -26,27 +32,39 @@ impl Poller {
         self.interval_secs
     }
 
-    /// One parallel poll cycle. Failures are independent (stale-on-error).
-    pub fn tick(&mut self) -> TrayState {
-        let results: Vec<(ProviderId, Result<ProviderSnapshot, String>)> =
-            std::thread::scope(|scope| {
-                let mut handles = Vec::new();
-                for provider in &self.providers {
-                    handles.push(scope.spawn(move || {
-                        let id = provider.id();
-                        let outcome = (|| {
-                            let creds = provider.credentials().map_err(|e| e.to_string())?;
-                            provider.fetch(&creds).map_err(|e| e.to_string())
-                        })();
-                        (id, outcome)
-                    }));
-                }
-                handles
-                    .into_iter()
-                    .map(|h| h.join().expect("provider thread"))
-                    .collect()
-            });
+    pub fn providers(&self) -> Arc<Vec<Arc<dyn Provider>>> {
+        Arc::clone(&self.providers)
+    }
 
+    /// Network fetch only — safe to run without holding a poller mutex.
+    pub fn fetch_providers(
+        providers: &[Arc<dyn Provider>],
+    ) -> Vec<(ProviderId, Result<ProviderSnapshot, String>)> {
+        std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for provider in providers {
+                let provider = Arc::clone(provider);
+                handles.push(scope.spawn(move || {
+                    let id = provider.id();
+                    let outcome = (|| {
+                        let creds = provider.credentials().map_err(|e| e.to_string())?;
+                        provider.fetch(&creds).map_err(|e| e.to_string())
+                    })();
+                    (id, outcome)
+                }));
+            }
+            handles
+                .into_iter()
+                .map(|h| h.join().expect("provider thread"))
+                .collect()
+        })
+    }
+
+    /// Merge fetch results into cached snapshots and build tray state.
+    pub fn apply_fetch_results(
+        &mut self,
+        results: Vec<(ProviderId, Result<ProviderSnapshot, String>)>,
+    ) -> TrayState {
         for (id, outcome) in results {
             match outcome {
                 Ok(mut snap) => {
@@ -90,5 +108,11 @@ impl Poller {
             providers,
             shared_mascot_fill: shared,
         }
+    }
+
+    /// One parallel poll cycle. Failures are independent (stale-on-error).
+    pub fn tick(&mut self) -> TrayState {
+        let results = Self::fetch_providers(&self.providers);
+        self.apply_fetch_results(results)
     }
 }
