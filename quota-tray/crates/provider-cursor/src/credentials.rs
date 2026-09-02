@@ -30,15 +30,11 @@ pub fn default_state_vscdb_path() -> PathBuf {
     }
 }
 
-/// Read `cursorAuth/accessToken` from Cursor's `state.vscdb` (immutable / read-only).
+/// Read `cursorAuth/accessToken` from Cursor's `state.vscdb` (read-only).
 pub fn read_access_token_from_db(path: &Path) -> Result<Credentials, CredentialError> {
-    // Immutable / read-only to coexist with Cursor's WAL lock.
-    let uri = format!("file:{}?mode=ro", path.display());
-    let conn = Connection::open_with_flags(
-        &uri,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_URI,
-    )
-    .map_err(|e| CredentialError::Missing(e.to_string()))?;
+    // Open by path (not URI) so spaces in macOS `Application Support` work without encoding.
+    let conn = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| CredentialError::Missing(e.to_string()))?;
 
     let token: String = conn
         .query_row(
@@ -78,6 +74,24 @@ mod tests {
         }
         let creds = read_access_token_from_db(&path).unwrap();
         assert_eq!(creds.raw.expose_secret(), "jwt-test-token");
+    }
+
+    #[test]
+    fn reads_token_from_db_in_path_with_spaces() {
+        let dir = tempfile::tempdir().unwrap();
+        let subdir = dir.path().join("Application Support");
+        std::fs::create_dir_all(&subdir).unwrap();
+        let path = subdir.join("state.vscdb");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT);
+                 INSERT INTO ItemTable(key, value) VALUES ('cursorAuth/accessToken', 'jwt-space-path');",
+            )
+            .unwrap();
+        }
+        let creds = read_access_token_from_db(&path).unwrap();
+        assert_eq!(creds.raw.expose_secret(), "jwt-space-path");
     }
 
     #[test]
