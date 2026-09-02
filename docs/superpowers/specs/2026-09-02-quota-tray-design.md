@@ -26,7 +26,7 @@ Claude Tracker solved this for **one** provider on **macOS**, with a trustworthy
 4. **Greenfield Tauri rebuild.** Tauri 2 + Rust core + Svelte (or plain HTML) panel. No PHP, no Laravel, no NativePHP, no Electron packaging path for the product.
 5. **macOS menubar polish first**, with Windows and Linux tray sharing the same panel UI and interaction model.
 6. **Open source** so anyone who grants Keychain / credential-store access can audit what we do with it — same trust bargain as Claude Tracker.
-7. **Carry forward the mascot language** (cream + terracotta fill-from-feet creature), generalized so shared fill = worst healthy provider.
+7. **Carry forward the mascot language** (cream + terracotta fill-from-feet creature), generalized so shared fill = **worst healthy provider** = **`max(headline_percent)`** among healthy providers (`headline_percent` is always **% used**, 0–100; higher = fuller / more alarming).
 
 ### Non-goals
 
@@ -72,9 +72,13 @@ Visual direction: **cream surfaces + terracotta mascot fill**. Provider brand co
 
 **Decision (approved): combined tray** — one icon, not one tray icon per provider.
 
-- **Multi-segment ring / arc** around or beside the mascot silhouette: one segment per *enabled* provider, colored with that provider’s chip color, length or fill reflecting that provider’s `headline_percent` when healthy.
-- **Shared mascot fill** = worst (minimum) `headline_percent` among **healthy** (non-stale, non-error) providers. If no healthy providers exist, mascot shows last combined policy: empty/pale body with a global stale affordance (e.g. muted template, no confident full fill).
-- Optional menubar **label** (macOS): shortest useful figure — e.g. the worst healthy percent — configurable later; default can mirror Claude Tracker’s “number beside icon” habit.
+- **Multi-segment ring / arc** around or beside the mascot silhouette: one segment per *enabled* provider, colored with that provider’s chip color.
+  - Healthy + `headline_percent: Some(p)` → segment fill = `p` (% used).
+  - Healthy + `headline_percent: None` → **muted empty segment** still present (provider enabled; no % to paint). Panel shows non-percent windows.
+  - Stale / error → dashed / muted segment; last known fill if any, else empty — never a confident live 0%.
+- **Shared mascot fill** = **`max(headline_percent)`** among **healthy** providers: not stale, no error, and `headline_percent` is `Some`. (`headline_percent` = % **used**; worst = fullest.)
+- **Empty healthy set:** keep **last successful** `shared_mascot_fill` if any, draw mascot **pale/muted** with global stale affordance; if never had a successful combined fill, empty pale body — never fabricate a live 0%.
+- Optional menubar **label** (macOS): default = that `max` among healthy (Claude Tracker “number beside icon” habit); blank/tooltip-only remains an open question.
 - Tooltip: one line per enabled provider (`Claude 62% · Cursor 41% · Copilot stale`) or a compact equivalent.
 
 ### 3.2 Panel — provider list
@@ -122,10 +126,10 @@ Minimal settings window (or panel footer → Settings):
 
 | Setting | Behavior |
 | --- | --- |
-| Enable / disable provider | Toggles polling and tray segment; disabled providers disappear from panel list |
+| Enable / disable provider | Toggles polling and tray segment; **panel lists enabled providers only** (disabled live in Settings toggles, not as disabled rows) |
 | Credential status | Connected / missing / expired — with “how to sign in to the vendor app” copy, not our OAuth portal |
-| Poll interval | Default in 60–120s range; same interval for all, or per-provider override later if needed |
-| Headline metric (per provider where relevant) | e.g. Claude: five-hour vs seven-day vs highest — drives that provider’s `headline_percent` |
+| Poll interval | **v1: default 60s, allowed range 60..=120** (same for all providers); per-provider override = post-v1 |
+| Headline metric (per provider where relevant) | Claude v1 **default = Highest** (`max(5h, 7d)` used %); optional FiveHour / SevenDay override |
 | Launch at login | Platform native |
 | Open source / privacy | Link to repo + short “what we read / where it goes” blurb |
 
@@ -189,7 +193,7 @@ flowchart TB
 
   subgraph corecrate [crates/core]
     Poller[Parallel poll scheduler]
-    Agg[Aggregator: worst headline]
+    Agg[Aggregator: max used percent]
     Store[Local snapshot cache]
     Cfg[Config: enabled providers]
   end
@@ -231,20 +235,22 @@ flowchart TB
 
 ### Polling
 
-- Interval: **~60–120 seconds** (default 60s, matching Claude Tracker habit; configurable).
+- Interval: **default 60s**, clamp **60..=120** in v1 settings (Claude Tracker habit).
 - Providers poll **in parallel**.
 - Failures are **independent**: one `Err` marks that provider’s last good snapshot stale; others unaffected.
 - No global “all zero” fallback on partial failure.
 
 ### Aggregation (approved)
 
+`headline_percent` is always **percent used** (0–100). Higher = more spent = worse for the user. Therefore “worst” = **maximum**, not minimum.
+
 ```
-shared_mascot_fill = min(headline_percent)
+shared_mascot_fill = max(headline_percent)
   among enabled providers where snapshot is healthy
   (not stale, no error, headline_percent is Some)
 ```
 
-If the healthy set is empty, tray uses stale/empty mascot policy — never a fabricated 0% “live” fill.
+If the healthy set is empty: reuse last successful `shared_mascot_fill` with muted/stale chrome; if none ever existed, pale empty mascot — never a fabricated live 0%.
 
 ### Why not Laravel / NativePHP
 
@@ -307,7 +313,7 @@ pub struct ProviderSnapshot {
 #[derive(Clone, Debug)]
 pub struct TrayState {
     pub providers: Vec<ProviderSnapshot>, // enabled only, stable order
-    /// min headline among healthy; None if none healthy
+    /// max % used among healthy; None if none healthy (see Aggregation)
     pub shared_mascot_fill: Option<f64>,
 }
 
@@ -324,15 +330,18 @@ pub struct Credentials {
 
 #[derive(Clone, Debug)]
 pub struct AppConfig {
-    pub poll_interval_secs: u64, // default 60; clamp 60..=120 for v1 UI or allow wider later
+    /// v1: default 60; settings UI clamps 60..=120
+    pub poll_interval_secs: u64,
     pub enabled: Vec<ProviderId>,
-    pub claude_headline: ClaudeHeadlineMetric, // FiveHour | SevenDay | Highest
+    /// v1 default = Highest (max of five_hour / seven_day used %)
+    pub claude_headline: ClaudeHeadlineMetric,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum ClaudeHeadlineMetric {
     FiveHour,
     SevenDay,
+    #[default]
     Highest,
 }
 ```
@@ -349,30 +358,31 @@ pub enum ClaudeHeadlineMetric {
 
 | Field | Tray | Panel |
 | --- | --- | --- |
-| `headline_percent` | Segment fill; feeds `shared_mascot_fill` if healthy | Row meter |
+| `headline_percent` (`Some`) | Segment fill; feeds `shared_mascot_fill` if healthy | Row meter |
+| `headline_percent` (`None`) | Muted empty segment (provider still shown) | Non-% windows / copy only |
 | `windows` | — | Dual / multi gauges |
-| `stale` | Segment muted / dashed; excluded from mascot min | “Stale” badge |
+| `stale` | Segment muted / dashed; excluded from mascot **max** | “Stale” badge |
 | `error` | Tooltip | Row error line |
 
 ---
 
 ## 6. Provider plugins
 
-| Provider | Crate | v1 ship | Credential source (intent) | Snapshot shape (intent) | Notes |
+| Provider | Crate | v1 | Credentials (concrete) | `headline_percent` (v1 formula) | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Claude Code | `provider-claude` | **v1** | macOS Keychain entry used by Claude Code (same trust model as Claude Tracker); other OS stores as researched | Percent windows: five-hour + seven-day; `headline_percent` from config | Port *behavior* of Claude Tracker’s credential + OAuth usage client — not PHP |
-| Cursor | `provider-cursor` | **v1** | Local Cursor session / token as documented in research appendix | At least one headline percent window | Unofficial surface likely |
-| GitHub Copilot | `provider-copilot` | **v1** | gh / Copilot / GitHub token material as researched | Percent and/or count windows → derive `headline_percent` when possible | May require GitHub login already present |
-| OpenAI | `provider-openai` | **v1.1** | User-supplied API key in OS secret store (not env files in git) | Currency spend windows; `headline_percent` derived from used/limit when limit known, else headline may be `None` and row shows currency only | Explicitly post-v1 |
+| Claude Code | `provider-claude` | **v1** | macOS Keychain service **`Claude Code-credentials`**; Linux/Win **`~/.claude/.credentials.json`** (also `$CLAUDE_CONFIG_DIR`) | Default **Highest** = `max(five_hour, seven_day)` % used; optional FiveHour/SevenDay | Unofficial `GET …/api/oauth/usage`; dual windows |
+| Cursor | `provider-cursor` | **v1** | SQLite `state.vscdb` key **`cursorAuth/accessToken`** (App Support / `.config` / `%APPDATA%` paths in appendix) | `totalPercentUsed` ?? `max(auto, api)` ?? spend/limit cents | Unofficial dashboard RPC; may break |
+| GitHub Copilot | `provider-copilot` | **v1** | Prefer **`~/.config/github-copilot/apps.json`** (Win: `%LOCALAPPDATA%\github-copilot\`); then `gh` hosts / Keychain | **`100 - premium_interactions.percent_remaining`** (skip `unlimited`) | Unofficial `GET /copilot_internal/user`; invert remaining→used |
+| OpenAI | `provider-openai` | **v1.1** | User API key in **OS secret store** (optional import from `OPENAI_API_KEY` once) | **`max(RPM%, TPM%)`** from rate-limit headers; **or** optional user **`soft_cap_usd`** vs Costs API spend — **no** prepaid remaining balance API | Official headers/APIs; weak “subscription left” semantics |
 
 ### Ship order
 
 1. **Core + Tauri shell + Claude** — proves tray, mascot, stale-on-error, settings, open-source credential story.
 2. **Cursor** — second segment + list row; validates multi-provider aggregation.
-3. **Copilot** — third v1 provider.
-4. **OpenAI (v1.1)** — currency-first window kind under the same trait; no core redesign.
+3. **Copilot** — third v1 provider (polarity: remaining → used).
+4. **OpenAI (v1.1)** — rate-limit and/or soft-cap under the same trait; no core redesign.
 
-Exact endpoint URLs, headers, and parse quirks: **see Provider research appendix** (filled by a separate research pass). This design locks the trait and UI contract only.
+Exact request headers and parse quirks: **see [`_research-providers.md`](./_research-providers.md)**. This section locks credentials + headline formulas implementers must follow.
 
 ### Provider registration
 
@@ -442,7 +452,7 @@ Quota Tray will ask the OS for credentials other apps already stored (or that th
 | Unofficial / undocumented usage APIs change or vanish | Provider goes permanently stale | Defensive parsers; stale-on-error; per-provider disable; README honesty; research appendix kept current |
 | Vendor ToS / ToU ambiguity | Legal / account risk for users | Document that we call the same classes of endpoints the vendor apps use where applicable; no scraping of logged-out marketing pages; user responsibility note |
 | Missing credentials on Win/Linux | Provider unavailable off macOS | Platform matrix honesty; graceful unavailable state |
-| `headline_percent` undefined for currency-only providers | Tray segment / mascot math awkward | Allow `None` headline; exclude from mascot min; show currency in panel; derive percent only when limit known |
+| `headline_percent` undefined (no % formula) | Tray segment / mascot math awkward | Allow `None` headline; muted empty segment; **exclude from mascot max**; panel shows RPM/TPM or soft-cap windows; OpenAI must not invent prepaid used/limit |
 | Tray icon overcrowding with many providers | Unreadable segments | v1 caps at 3–4 enabled; segment min width; collapse to mascot-only + tooltip if needed |
 | Tauri tray API differences across OS | Polish gaps | macOS-first polish budget; shared panel |
 | Conflating “0% used” with parse failure | User trust break | Typed `Option`; UI tests for null vs zero |
@@ -477,24 +487,24 @@ Claude Tracker remains the **product reference** for honesty and mascot language
 
 Only true unknowns remain:
 
-1. **OpenAI v1.1:** which spend API (org usage vs Personal) and how often rate limits apply to the usage endpoint itself — research appendix sketches options; pick at implementation kickoff.
+1. **OpenAI v1.1 default mode:** rate-limit RPM/TPM probe vs user `soft_cap_usd` vs Costs API — pick primary at kickoff (no prepaid remaining API exists).
 2. **Menubar label default:** worst percent only vs blank label with tooltip-only (macOS width pressure).
 3. **Repo home:** continue under `claude-tracker` monorepo vs new `quota-tray` GitHub repo for cleaner open-source naming.
 4. **Svelte vs plain HTML** for `ui/` — Svelte preferred; final choice at scaffold time if bundle size or Tauri templates push HTML.
 
 **Resolved by research appendix (no longer open):** Claude / Cursor / Copilot credential paths and usage endpoints per OS — see `_research-providers.md`. Cursor/Copilot remain unofficial and may still force macOS-first QA, but locations are documented.
 
-Decided items (combined tray, stack, provider list, mascot = min healthy headline, honesty rules, macOS polish first, OSS, v1/v1.1 ship order) are **not** open.
+Decided items (combined tray, stack, **enabled-only** provider list, mascot = **`max` healthy % used**, honesty rules, macOS polish first, OSS, v1/v1.1 ship order, poll 60s default / 60..=120) are **not** open.
 
 ---
 
 ## 12. Provider research appendix
 
-Detailed credential paths, request shapes, response samples, and parser notes for each vendor live in a companion document filled by a separate research pass:
+Detailed credential paths, request shapes, and parser notes:
 
-**See [`_research-providers.md`](./_research-providers.md)** (same directory).
+**See [`_research-providers.md`](./_research-providers.md)** (same directory; research complete 2026-09-02).
 
-That appendix covers per-OS credential paths, unofficial endpoints, units, reliability, and suggested `headline_percent` mappings (Claude = max of session/weekly used %; Cursor/Copilot convert remaining→used). This design defines the contracts those findings must satisfy; parsers implement the appendix.
+§6 already promotes the v1 credential locations and `headline_percent` formulas. The appendix remains the deep reference for endpoints, headers, and edge cases. Parsers must satisfy both.
 
 ---
 
@@ -514,15 +524,15 @@ Mascot grid may reuse Claude Tracker’s 16×16 `B`/`E` art for continuity; eyes
 
 ## Appendix B — Engineering approval checklist
 
-- [x] Combined tray with multi-segment + full provider list panel  
+- [x] Combined tray with multi-segment + **enabled** provider list panel  
 - [x] Tauri 2 + Rust + Svelte/HTML; no PHP/Laravel  
 - [x] v1 providers: Claude, Cursor, Copilot; OpenAI in v1.1  
-- [x] Shared mascot fill = min healthy `headline_percent`  
+- [x] Shared mascot fill = **`max`** healthy `headline_percent` (% used)  
 - [x] Stale-on-error, no fake zeros, no telemetry, no our servers  
 - [x] macOS menubar first; Win/Linux same UI  
 - [x] Open source for credential trust  
 - [x] Mobbin-informed UX with citations  
-- [x] Plugin trait + normalized snapshot  
+- [x] Plugin trait + normalized snapshot + concrete credential/headline formulas in §6  
 - [x] Parallel poll, independent failure  
 - [x] Migration path without Laravel port  
 
