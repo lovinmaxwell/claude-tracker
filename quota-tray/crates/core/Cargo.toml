@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
 secrecy = { version = "0.10", features = ["serde"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -12,5 +13,6 @@ thiserror = { workspace = true }
 time = { workspace = true }
 
 [dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
 secrecy = { version = "0.10", features = ["serde"] }
 time = { workspace = true }
