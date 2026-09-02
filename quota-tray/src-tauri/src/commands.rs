@@ -1,10 +1,36 @@
 use crate::state::AppState;
-use quota_tray_core::TrayState;
-use tauri::State;
+use quota_tray_core::{AppConfig, TrayState};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[tauri::command]
 pub fn get_tray_state(state: State<'_, AppState>) -> Result<TrayState, String> {
     Ok(state.tray_state.read().clone())
+}
+
+#[tauri::command]
+pub fn get_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
+    Ok(state.config.read().clone())
+}
+
+#[tauri::command]
+pub fn set_config(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    mut config: AppConfig,
+) -> Result<AppConfig, String> {
+    config = config.sanitized();
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    crate::config_store::save(data_dir, &config)?;
+    *state.config.write() = config.clone();
+
+    let tray = {
+        let mut poller = state.poller.lock();
+        poller.replace_providers(crate::providers::from_config(&config))
+    };
+    *state.tray_state.write() = tray;
+    let _ = app.emit("tray-state-updated", ());
+
+    Ok(config)
 }
 
 #[cfg(test)]

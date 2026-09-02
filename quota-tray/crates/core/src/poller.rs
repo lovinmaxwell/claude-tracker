@@ -36,6 +36,35 @@ impl Poller {
         Arc::clone(&self.providers)
     }
 
+    /// Swap the registered provider set (e.g. after Settings save). Drops cached
+    /// snapshots for providers that are no longer registered and returns a
+    /// tray state rebuilt from remaining cache (no network).
+    pub fn replace_providers(&mut self, providers: Vec<Box<dyn Provider>>) -> TrayState {
+        self.providers = Arc::new(
+            providers
+                .into_iter()
+                .map(|provider| Arc::from(provider) as Arc<dyn Provider>)
+                .collect(),
+        );
+        let keep: std::collections::HashSet<ProviderId> =
+            self.providers.iter().map(|p| p.id()).collect();
+        self.last.retain(|id, _| keep.contains(id));
+        self.tray_from_cache()
+    }
+
+    fn tray_from_cache(&self) -> TrayState {
+        let providers: Vec<ProviderSnapshot> = self
+            .providers
+            .iter()
+            .filter_map(|p| self.last.get(&p.id()).cloned())
+            .collect();
+        let shared = aggregate_mascot_fill(&providers, self.last_mascot);
+        TrayState {
+            providers,
+            shared_mascot_fill: shared,
+        }
+    }
+
     /// Network fetch only — safe to run without holding a poller mutex.
     pub fn fetch_providers(
         providers: &[Arc<dyn Provider>],

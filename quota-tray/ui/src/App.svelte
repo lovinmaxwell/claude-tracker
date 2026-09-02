@@ -50,7 +50,7 @@
     {/each}
   {/if}
   <footer>
-    <a href="/settings.html">Settings</a>
+    <a href="settings.html">Settings</a>
     <button type="button" onclick={refresh}>Refresh</button>
   </footer>
 </main>
