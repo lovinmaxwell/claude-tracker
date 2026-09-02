@@ -1,15 +1,13 @@
 //! Shared types, aggregation, and poller for Quota Tray.
 
-pub fn workspace_smoke() -> &'static str {
-    "quota_tray_core"
-}
+mod aggregate;
+mod config;
+mod provider;
+mod types;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn workspace_smoke_returns_crate_name() {
-        assert_eq!(workspace_smoke(), "quota_tray_core");
-    }
-}
+pub use aggregate::aggregate_mascot_fill;
+pub use config::{clamp_poll_interval_secs, AppConfig, ClaudeHeadlineMetric};
+pub use provider::{CredentialError, Credentials, FetchError, Provider};
+pub use types::{
+    ProviderId, ProviderInfo, ProviderSnapshot, TrayState, UsageWindow, WindowKind,
+};
