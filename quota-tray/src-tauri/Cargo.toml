@@ -21,6 +21,7 @@ tokio = { workspace = true }
 parking_lot = "0.12"
 quota_tray_core = { path = "../crates/core" }
 provider_claude = { path = "../crates/provider-claude" }
+provider_cursor = { path = "../crates/provider-cursor" }
 time = { workspace = true }
 
 [dev-dependencies]

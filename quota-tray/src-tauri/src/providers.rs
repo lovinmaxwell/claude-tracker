@@ -1,4 +1,5 @@
 use provider_claude::ClaudeProvider;
+use provider_cursor::CursorProvider;
 use quota_tray_core::{AppConfig, Provider, ProviderId};
 
 /// Build the poller provider list from config (enabled + Claude headline).
@@ -10,6 +11,9 @@ pub fn from_config(config: &AppConfig) -> Vec<Box<dyn Provider>> {
             ..Default::default()
         }));
     }
-    // Cursor / Copilot / OpenAI: register when those crates land.
+    if config.enabled.contains(&ProviderId::Cursor) {
+        out.push(Box::new(CursorProvider::default()));
+    }
+    // Copilot / OpenAI: register when those crates land.
     out
 }
