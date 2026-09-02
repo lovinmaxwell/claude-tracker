@@ -134,3 +134,58 @@ fn never_had_success_stays_none_headline_not_fake_zero() {
     assert_eq!(snap.headline_percent, None);
     assert_eq!(state.shared_mascot_fill, None);
 }
+
+#[test]
+fn enabled_unpolled_providers_appear_as_waiting_rows() {
+    let claude = FakeProvider::new(ProviderId::Claude, vec![]);
+    let cursor = FakeProvider::new(ProviderId::Cursor, vec![]);
+    let mut poller = Poller::new(vec![Box::new(claude), Box::new(cursor)], 60);
+    let state = poller.replace_providers(vec![
+        Box::new(FakeProvider::new(ProviderId::Claude, vec![])),
+        Box::new(FakeProvider::new(ProviderId::Cursor, vec![])),
+        Box::new(FakeProvider::new(ProviderId::Copilot, vec![])),
+    ]);
+    assert_eq!(state.providers.len(), 3);
+    for snap in &state.providers {
+        assert!(snap.stale);
+        assert_eq!(snap.headline_percent, None);
+        assert_eq!(
+            snap.error.as_deref(),
+            Some(quota_tray_core::WAITING_FIRST_READING)
+        );
+    }
+    assert_eq!(state.shared_mascot_fill, None);
+}
+
+#[test]
+fn replace_providers_keeps_cached_and_adds_waiting_for_new() {
+    let claude = FakeProvider::new(
+        ProviderId::Claude,
+        vec![Ok(FakeProvider::ok_snap(ProviderId::Claude, 55.0))],
+    );
+    let mut poller = Poller::new(vec![Box::new(claude)], 60);
+    let _ = poller.tick();
+    let state = poller.replace_providers(vec![
+        Box::new(FakeProvider::new(ProviderId::Claude, vec![])),
+        Box::new(FakeProvider::new(ProviderId::Copilot, vec![])),
+    ]);
+    assert_eq!(state.providers.len(), 2);
+    let claude = state
+        .providers
+        .iter()
+        .find(|p| p.provider == ProviderId::Claude)
+        .unwrap();
+    assert_eq!(claude.headline_percent, Some(55.0));
+    assert!(!claude.stale);
+    let copilot = state
+        .providers
+        .iter()
+        .find(|p| p.provider == ProviderId::Copilot)
+        .unwrap();
+    assert_eq!(copilot.headline_percent, None);
+    assert!(copilot.stale);
+    assert_eq!(
+        copilot.error.as_deref(),
+        Some(quota_tray_core::WAITING_FIRST_READING)
+    );
+}

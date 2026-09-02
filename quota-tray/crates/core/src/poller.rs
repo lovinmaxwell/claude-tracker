@@ -1,10 +1,22 @@
 use crate::aggregate::aggregate_mascot_fill;
 use crate::config::clamp_poll_interval_secs;
 use crate::provider::Provider;
-use crate::types::{ProviderId, ProviderSnapshot, TrayState};
+use crate::types::{ProviderId, ProviderSnapshot, TrayState, WAITING_FIRST_READING};
 use std::collections::HashMap;
 use std::sync::Arc;
 use time::OffsetDateTime;
+
+/// Placeholder for an enabled provider that has never produced a snapshot.
+pub fn waiting_snapshot(id: ProviderId) -> ProviderSnapshot {
+    ProviderSnapshot {
+        provider: id,
+        fetched_at: OffsetDateTime::UNIX_EPOCH,
+        windows: vec![],
+        headline_percent: None,
+        stale: true,
+        error: Some(WAITING_FIRST_READING.to_string()),
+    }
+}
 
 pub struct Poller {
     providers: Arc<Vec<Arc<dyn Provider>>>,
@@ -52,12 +64,20 @@ impl Poller {
         self.tray_from_cache()
     }
 
-    fn tray_from_cache(&self) -> TrayState {
-        let providers: Vec<ProviderSnapshot> = self
-            .providers
+    fn snapshots_for_enabled(&self) -> Vec<ProviderSnapshot> {
+        self.providers
             .iter()
-            .filter_map(|p| self.last.get(&p.id()).cloned())
-            .collect();
+            .map(|p| {
+                self.last
+                    .get(&p.id())
+                    .cloned()
+                    .unwrap_or_else(|| waiting_snapshot(p.id()))
+            })
+            .collect()
+    }
+
+    fn tray_from_cache(&self) -> TrayState {
+        let providers = self.snapshots_for_enabled();
         let shared = aggregate_mascot_fill(&providers, self.last_mascot);
         TrayState {
             providers,
@@ -122,11 +142,7 @@ impl Poller {
             }
         }
 
-        let providers: Vec<ProviderSnapshot> = self
-            .providers
-            .iter()
-            .filter_map(|p| self.last.get(&p.id()).cloned())
-            .collect();
+        let providers = self.snapshots_for_enabled();
 
         let shared = aggregate_mascot_fill(&providers, self.last_mascot);
         if providers.iter().any(|p| p.is_healthy()) {
