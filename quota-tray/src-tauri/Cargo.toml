@@ -22,6 +22,7 @@ parking_lot = "0.12"
 quota_tray_core = { path = "../crates/core" }
 provider_claude = { path = "../crates/provider-claude" }
 provider_cursor = { path = "../crates/provider-cursor" }
+provider_copilot = { path = "../crates/provider-copilot" }
 time = { workspace = true }
 
 [dev-dependencies]

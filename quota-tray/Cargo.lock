@@ -2679,6 +2679,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "provider_copilot"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "quota_tray_core",
+ "reqwest 0.12.28",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "time",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "provider_cursor"
 version = "0.1.0"
 dependencies = [
@@ -2773,6 +2790,7 @@ version = "0.1.0"
 dependencies = [
  "parking_lot",
  "provider_claude",
+ "provider_copilot",
  "provider_cursor",
  "quota_tray_core",
  "serde",

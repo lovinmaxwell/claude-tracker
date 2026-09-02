@@ -4,6 +4,7 @@ members = [
     "crates/core",
     "crates/provider-claude",
     "crates/provider-cursor",
+    "crates/provider-copilot",
     "src-tauri",
 ]
 

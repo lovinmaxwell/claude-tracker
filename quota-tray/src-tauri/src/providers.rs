@@ -1,4 +1,5 @@
 use provider_claude::ClaudeProvider;
+use provider_copilot::CopilotProvider;
 use provider_cursor::CursorProvider;
 use quota_tray_core::{AppConfig, Provider, ProviderId};
 
@@ -14,6 +15,9 @@ pub fn from_config(config: &AppConfig) -> Vec<Box<dyn Provider>> {
     if config.enabled.contains(&ProviderId::Cursor) {
         out.push(Box::new(CursorProvider::default()));
     }
-    // Copilot / OpenAI: register when those crates land.
+    if config.enabled.contains(&ProviderId::Copilot) {
+        out.push(Box::new(CopilotProvider::default()));
+    }
+    // OpenAI: register when that crate lands.
     out
 }
