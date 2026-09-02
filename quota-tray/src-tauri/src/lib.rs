@@ -1,6 +1,6 @@
 #[tauri::command]
 fn greet(name: &str) -> String {
-    format!("Hello, {name}! from {}", quota_tray_core::workspace_smoke())
+    format!("Hello, {name}! from quota-tray")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
