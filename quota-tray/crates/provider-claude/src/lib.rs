@@ -1,5 +1,11 @@
 //! Claude Code credentials + Anthropic OAuth usage fetch.
 
+mod credentials;
+
+pub use credentials::{
+    credentials_file_path, parse_claude_credentials_json, ClaudeOAuthCreds, KEYCHAIN_SERVICE,
+};
+
 pub fn provider_id_str() -> &'static str {
     "claude"
 }
