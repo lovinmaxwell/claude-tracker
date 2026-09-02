@@ -1,0 +1,37 @@
+:root {
+  --cream: #f3ebe1;
+  --cream-deep: #e8dccf;
+  --ink: #2c241c;
+  --ink-muted: #6b5d50;
+  --terracotta: #c96442;
+  --terracotta-soft: #d9896a;
+  --pale: #faf6f1;
+  --danger: #a33b2a;
+  --chip-claude: #c96442;
+  --chip-cursor: #5a7a6a;
+  --chip-copilot: #3d5a80;
+  --radius: 10px;
+  --font: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-ui: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+
+body {
+  background:
+    radial-gradient(120% 80% at 0% 0%, #f7f0e8 0%, transparent 55%),
+    radial-gradient(90% 70% at 100% 20%, #eadfce 0%, transparent 50%),
+    var(--cream);
+}
