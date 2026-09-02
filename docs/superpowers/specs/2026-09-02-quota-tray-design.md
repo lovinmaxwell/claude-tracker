@@ -4,7 +4,7 @@
 | --- | --- |
 | **Working title** | Quota Tray |
 | **Date** | 2026-09-02 |
-| **Status** | Draft — pending user review of written spec |
+| **Status** | Approved — implementation plan next |
 | **Supersedes** | Claude Tracker (Laravel + NativePHP macOS menu bar app in this repo) |
 | **License intent** | Open source (MIT or equivalent) — credential trust |
 
