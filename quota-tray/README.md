@@ -52,6 +52,7 @@ cd quota-tray
 npm install --prefix ui
 cargo build -p quota_tray_core
 cd src-tauri && cargo tauri dev
+# beforeDevCommand runs npm from the quota-tray workspace root (`ui/`, not `../ui`)
 ```
 
 First launch:

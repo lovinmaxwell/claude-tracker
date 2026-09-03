@@ -4,22 +4,27 @@
   "version": "0.1.0",
   "identifier": "dev.quotatray.app",
   "build": {
-    "beforeDevCommand": "npm run dev --prefix ../ui",
+    "beforeDevCommand": "npm run dev --prefix ui",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build --prefix ../ui",
+    "beforeBuildCommand": "npm run build --prefix ui",
     "frontendDist": "../ui/dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "withGlobalTauri": false,
     "windows": [
       {
         "label": "main",
         "title": "Quota Tray",
         "width": 360,
-        "height": 480,
+        "height": 520,
         "decorations": false,
         "resizable": false,
-        "visible": false
+        "transparent": true,
+        "shadow": true,
+        "visible": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
       }
     ],
     "security": {
