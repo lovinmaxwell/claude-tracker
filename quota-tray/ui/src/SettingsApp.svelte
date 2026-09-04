@@ -5,7 +5,12 @@
   import {
     applyThemeMode,
     initTheme,
+    readPalette,
+    applyPalette,
+    initPalette,
+    PALETTE_OPTIONS,
     type ThemeMode,
+    type PaletteId,
   } from "./lib/theme";
 
   type ProviderId = "Claude" | "Cursor" | "Copilot" | "OpenAI";
@@ -23,6 +28,7 @@
     claude_headline: "Highest",
   });
   let theme = $state<ThemeMode>("system");
+  let palette = $state<PaletteId>("studio");
   let saved = $state(false);
   let error = $state<string | null>(null);
 
@@ -40,6 +46,7 @@
 
   onMount(async () => {
     theme = initTheme();
+    palette = initPalette();
     try {
       config = await invoke<AppConfig>("get_config");
     } catch (e) {
@@ -50,6 +57,11 @@
   function setTheme(mode: ThemeMode) {
     theme = mode;
     applyThemeMode(mode);
+  }
+
+  function setPalette(id: PaletteId) {
+    palette = id;
+    applyPalette(id);
   }
 
   function toggle(id: ProviderId, on: boolean) {
@@ -92,7 +104,7 @@
   </header>
 
   <section class="card">
-    <h2>Appearance</h2>
+    <h2>Appearance Mode</h2>
     <div class="theme-grid" role="radiogroup" aria-label="Theme">
       {#each themeOptions as opt}
         <button
@@ -106,6 +118,32 @@
           <span class={`swatch swatch-${opt.id}`}></span>
           <span class="theme-label">{opt.label}</span>
           <span class="theme-hint">{opt.hint}</span>
+        </button>
+      {/each}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Color Palette</h2>
+    <div class="palette-grid" role="radiogroup" aria-label="Color Palette">
+      {#each PALETTE_OPTIONS as p}
+        <button
+          type="button"
+          class="palette-card"
+          class:active={palette === p.id}
+          role="radio"
+          aria-checked={palette === p.id}
+          onclick={() => setPalette(p.id)}
+        >
+          <div class="palette-header">
+            <span class="palette-title">{p.label}</span>
+            <div class="swatches-row">
+              {#each p.swatches as s}
+                <span class="swatch-dot" style={`background: ${s}`}></span>
+              {/each}
+            </div>
+          </div>
+          <p class="palette-desc">{p.description}</p>
         </button>
       {/each}
     </div>
@@ -138,263 +176,262 @@
       class="range"
       type="range"
       min="60"
-      max="120"
-      step="5"
+      max="1800"
+      step="60"
       value={config.poll_interval_secs}
       oninput={onPollInput}
     />
-    <div class="range-labels">
-      <span>60s</span>
-      <span>120s</span>
-    </div>
-    <p class="hint">Allowed range 60–120. Default 60.</p>
-  </section>
-
-  <section class="card">
-    <h2>Claude headline metric</h2>
-    <select
-      bind:value={config.claude_headline}
-      onchange={() => {
-        saved = false;
-      }}
-    >
-      <option value="Highest">Highest (max of 5h / 7d)</option>
-      <option value="FiveHour">Five-hour window</option>
-      <option value="SevenDay">Seven-day window</option>
-    </select>
   </section>
 
   <div class="actions">
-    <button type="button" class="save" onclick={save}>Save changes</button>
-    {#if saved}<p class="ok">Saved.</p>{/if}
-    {#if error}<p class="err">{error}</p>{/if}
+    <button type="button" class="btn primary" onclick={save}>Save</button>
+    {#if saved}
+      <span class="saved">Saved</span>
+    {/if}
+    {#if error}
+      <span class="err">{error}</span>
+    {/if}
   </div>
 </main>
 
 <style>
   .settings {
-    min-height: 100vh;
-    padding: 1.1rem 1.15rem 1.5rem;
-    animation: rise-in 420ms var(--ease) both;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1rem 1.25rem 2rem;
+    font-family: var(--font-ui);
+    color: var(--ink);
+    background: var(--sheet);
   }
+
   .head {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.75rem;
-    align-items: start;
-    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1.2rem;
   }
+
   .back {
-    width: 2rem;
-    height: 2rem;
-    display: grid;
+    display: inline-grid;
     place-items: center;
-    border-radius: 999px;
-    border: 1px solid var(--cream-line);
-    background: var(--pale);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 0.5px solid var(--popover-stroke);
     color: var(--ink);
     text-decoration: none;
-    font-weight: 700;
+    font-size: 1.1rem;
+    background: var(--card-bg);
   }
+
   h1 {
     margin: 0;
-    font-family: var(--font);
-    font-size: 1.55rem;
-    letter-spacing: -0.03em;
+    font-size: 1.25rem;
+    font-weight: 700;
   }
-  h2 {
-    margin: 0 0 0.55rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+
+  .blurb {
+    margin: 0.2rem 0 0;
+    font-size: 0.76rem;
     color: var(--ink-muted);
   }
-  .blurb,
-  .hint {
-    margin: 0.25rem 0 0;
-    color: var(--ink-muted);
-    font-size: 0.82rem;
-    line-height: 1.4;
-  }
+
   .card {
-    margin: 0.75rem 0;
-    padding: 0.85rem 0.9rem;
-    background: var(--sheet);
-    border: 1px solid var(--cream-line);
+    background: var(--card-bg);
+    border: 0.5px solid var(--card-border);
     border-radius: var(--radius);
-    box-shadow: var(--shadow-soft);
+    padding: 0.9rem 1rem;
+    margin-bottom: 1rem;
   }
+
+  .card h2 {
+    margin: 0 0 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
   .theme-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.55rem;
+    gap: 0.6rem;
   }
+
   .theme-card {
     appearance: none;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--pale);
+    padding: 0.65rem 0.5rem;
+    text-align: center;
+    cursor: pointer;
+    color: var(--ink);
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.2rem;
-    padding: 0.65rem 0.55rem;
-    border-radius: var(--radius-sm);
-    border: 1.5px solid var(--cream-line);
-    background: var(--pale);
-    color: var(--ink);
-    cursor: pointer;
-    text-align: left;
-    font: inherit;
-    transition:
-      border-color 160ms var(--ease),
-      box-shadow 160ms var(--ease),
-      transform 160ms var(--ease);
+    align-items: center;
+    gap: 0.35rem;
   }
   .theme-card.active {
-    border-color: var(--terracotta);
-    box-shadow: 0 0 0 1px var(--terracotta);
+    border-color: var(--chip-claude);
+    box-shadow: 0 0 0 1.5px var(--chip-claude);
   }
-  .theme-card:active {
-    transform: translateY(1px);
-  }
+
   .swatch {
-    width: 100%;
-    height: 28px;
-    border-radius: 8px;
-    margin-bottom: 0.25rem;
-    border: 1px solid var(--cream-line);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--popover-stroke);
   }
   .swatch-system {
-    background: linear-gradient(90deg, #f5ede6 50%, #1c1612 50%);
+    background: linear-gradient(135deg, #ffffff 50%, #2c2c2c 50%);
   }
   .swatch-light {
-    background: linear-gradient(135deg, #fbf7f2, #c96442 120%);
+    background: #fbf7f2;
   }
   .swatch-dark {
-    background: linear-gradient(135deg, #1c1612, #c96442 140%);
+    background: #231c18;
   }
+
   .theme-label {
-    font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 600;
   }
   .theme-hint {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     color: var(--ink-muted);
   }
+
+  /* Palette Grid */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .palette-card {
+    appearance: none;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--pale);
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    cursor: pointer;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    transition: border-color 150ms ease;
+  }
+  .palette-card.active {
+    border-color: var(--chip-claude);
+    box-shadow: 0 0 0 1.5px var(--chip-claude);
+  }
+
+  .palette-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .palette-title {
+    font-size: 0.8rem;
+    font-weight: 650;
+  }
+
+  .swatches-row {
+    display: flex;
+    gap: 4px;
+  }
+
+  .swatch-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .palette-desc {
+    margin: 0;
+    font-size: 0.68rem;
+    color: var(--ink-muted);
+    line-height: 1.3;
+  }
+
+  /* Providers */
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 0;
+    border-top: 0.5px solid var(--popover-stroke);
+    cursor: pointer;
+  }
+  .toggle-row:first-of-type {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .copy {
+    display: flex;
+    flex-direction: column;
+  }
+  .title {
+    font-weight: 600;
+    font-size: 0.86rem;
+  }
+  .desc {
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+  }
+
+  .switch {
+    width: 40px;
+    height: 22px;
+    cursor: pointer;
+  }
+
   .card-top {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
   }
-  .card-top h2 {
-    margin: 0;
-  }
   .value {
+    font-size: 0.82rem;
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--terracotta-deep);
+    font-family: var(--font-mono);
   }
-  .toggle-row {
+
+  .range {
+    width: 100%;
+    margin-top: 0.4rem;
+  }
+
+  .actions {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.55rem 0;
-    border-top: 1px solid var(--cream-line);
-    cursor: pointer;
+    margin-top: 1.25rem;
   }
-  .toggle-row:first-of-type {
-    border-top: 0;
-    padding-top: 0.15rem;
-  }
-  .copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.12rem;
-    min-width: 0;
-  }
-  .title {
-    font-weight: 650;
-  }
-  .desc {
-    font-size: 0.75rem;
-    color: var(--ink-muted);
-    line-height: 1.3;
-  }
-  .switch {
+
+  .btn.primary {
     appearance: none;
-    width: 44px;
-    height: 26px;
-    margin-left: auto;
-    flex-shrink: 0;
-    border-radius: 999px;
-    background: var(--cream-deep);
-    border: 1px solid var(--cream-line);
-    position: relative;
+    background: var(--chip-claude);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 1.2rem;
+    font-weight: 650;
+    font-size: 0.85rem;
     cursor: pointer;
-    transition: background 180ms var(--ease);
   }
-  .switch::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-    transition: transform 180ms var(--ease);
-  }
-  .switch:checked {
-    background: var(--terracotta);
-    border-color: var(--terracotta-deep);
-  }
-  .switch:checked::after {
-    transform: translateX(18px);
-  }
-  .range {
-    width: 100%;
-    accent-color: var(--terracotta);
-    margin-top: 0.55rem;
-  }
-  .range-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.72rem;
-    color: var(--ink-muted);
-  }
-  select {
-    width: 100%;
-    font: inherit;
-    padding: 0.55rem 0.65rem;
-    border: 1px solid var(--cream-line);
-    border-radius: var(--radius-sm);
-    background: var(--pale);
-    color: var(--ink);
-  }
-  .actions {
-    margin-top: 1rem;
-  }
-  .save {
-    width: 100%;
-    background: linear-gradient(180deg, var(--terracotta-soft), var(--terracotta));
-    color: #fff;
-    border: 0;
-    border-radius: 999px;
-    padding: 0.75rem 1rem;
-    font: inherit;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--terracotta) 28%, transparent);
-  }
-  .save:hover {
-    filter: brightness(1.03);
-  }
-  .ok {
-    margin: 0.55rem 0 0;
-    color: var(--ok);
+
+  .saved {
+    font-size: 0.82rem;
     font-weight: 600;
+    color: var(--ok);
   }
   .err {
-    margin: 0.55rem 0 0;
+    font-size: 0.82rem;
     color: var(--danger);
   }
 </style>
