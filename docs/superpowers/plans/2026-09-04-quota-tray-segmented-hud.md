@@ -1,6 +1,6 @@
 # Quota Tray: Precision Segmented HUD & Multi-Palette Theming Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Transform the Quota Tray menu bar app into a high-density, engineer-grade Precision Segmented HUD with 12-segment LED fill meters, compact HUD topbar, and a selectable 4-palette theme engine (Studio, Cyberpunk, Tokyo Night, Matrix).
 
@@ -16,7 +16,7 @@
 - Modify: `quota-tray/ui/src/lib/theme.ts`
 - Test: `quota-tray/ui/src/lib/theme.test.ts`
 
-- [ ] **Step 1: Write the failing test for palette management**
+- [x] **Step 1: Write the failing test for palette management**
 
 In `quota-tray/ui/src/lib/theme.test.ts`, append tests for `readPalette`, `applyPalette`, `initPalette`, and `cyclePalette`:
 
@@ -114,12 +114,12 @@ describe("theme", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test` in `quota-tray/ui`
 Expected: FAIL with "readPalette is not exported from ./theme"
 
-- [ ] **Step 3: Implement multi-palette functions in `theme.ts`**
+- [x] **Step 3: Implement multi-palette functions in `theme.ts`**
 
 Update `quota-tray/ui/src/lib/theme.ts`:
 
@@ -233,12 +233,12 @@ export function cyclePalette(current: PaletteId): PaletteId {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test` in `quota-tray/ui`
 Expected: PASS (all tests passing)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ui/src/lib/theme.ts ui/src/lib/theme.test.ts
@@ -253,7 +253,7 @@ git commit -m "feat: add multi-palette theming engine with persistence and cycle
 - Modify: `quota-tray/ui/src/lib/format.ts`
 - Test: `quota-tray/ui/src/lib/format.test.ts`
 
-- [ ] **Step 1: Write the failing tests for segment calculations**
+- [x] **Step 1: Write the failing tests for segment calculations**
 
 In `quota-tray/ui/src/lib/format.test.ts`, add tests for `segmentedActiveCount` and `isWarningSegment`:
 
@@ -302,12 +302,12 @@ describe("format", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test` in `quota-tray/ui`
 Expected: FAIL with "segmentedActiveCount is not exported from ./format"
 
-- [ ] **Step 3: Implement segment calculations in `format.ts`**
+- [x] **Step 3: Implement segment calculations in `format.ts`**
 
 Update `quota-tray/ui/src/lib/format.ts`:
 
@@ -353,12 +353,12 @@ export function isWarningSegment(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test` in `quota-tray/ui`
 Expected: PASS (all 4 test files pass)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ui/src/lib/format.ts ui/src/lib/format.test.ts
@@ -372,7 +372,7 @@ git commit -m "feat: add segmentedActiveCount and isWarningSegment helpers"
 **Files:**
 - Modify: `quota-tray/ui/src/app.css`
 
-- [ ] **Step 1: Define CSS custom properties for all 4 palettes in `app.css`**
+- [x] **Step 1: Define CSS custom properties for all 4 palettes in `app.css`**
 
 Update `quota-tray/ui/src/app.css` with palette variables and segmented meter styling:
 
@@ -570,12 +570,12 @@ body,
 }
 ```
 
-- [ ] **Step 2: Verify CSS builds cleanly**
+- [x] **Step 2: Verify CSS builds cleanly**
 
 Run: `npm run build` in `quota-tray/ui`
 Expected: PASS with 0 errors
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add ui/src/app.css
@@ -589,7 +589,7 @@ git commit -m "style: define multi-palette color variables and HUD animations"
 **Files:**
 - Modify: `quota-tray/ui/src/lib/components/ProviderRow.svelte`
 
-- [ ] **Step 1: Update `ProviderRow.svelte` with 12-segment meter and HUD card layout**
+- [x] **Step 1: Update `ProviderRow.svelte` with 12-segment meter and HUD card layout**
 
 Rewrite `quota-tray/ui/src/lib/components/ProviderRow.svelte`:
 
@@ -913,12 +913,12 @@ Rewrite `quota-tray/ui/src/lib/components/ProviderRow.svelte`:
 </style>
 ```
 
-- [ ] **Step 2: Build verification**
+- [x] **Step 2: Build verification**
 
 Run: `npm run build` in `quota-tray/ui`
 Expected: PASS with 0 errors
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add ui/src/lib/components/ProviderRow.svelte
@@ -932,7 +932,7 @@ git commit -m "feat: implement 12-segment LED fill meter and HUD card in Provide
 **Files:**
 - Modify: `quota-tray/ui/src/lib/components/Hero.svelte`
 
-- [ ] **Step 1: Modernize `Hero.svelte` into a streamlined HUD banner**
+- [x] **Step 1: Modernize `Hero.svelte` into a streamlined HUD banner**
 
 Rewrite `quota-tray/ui/src/lib/components/Hero.svelte`:
 
@@ -1055,12 +1055,12 @@ Rewrite `quota-tray/ui/src/lib/components/Hero.svelte`:
 </style>
 ```
 
-- [ ] **Step 2: Build verification**
+- [x] **Step 2: Build verification**
 
 Run: `npm run build` in `quota-tray/ui`
 Expected: PASS with 0 errors
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add ui/src/lib/components/Hero.svelte
@@ -1074,7 +1074,7 @@ git commit -m "feat: modernize Hero into compact HUD topbar with status dot and 
 **Files:**
 - Modify: `quota-tray/ui/src/App.svelte`
 
-- [ ] **Step 1: Wire up palette initialization, storage sync, and footer switcher**
+- [x] **Step 1: Wire up palette initialization, storage sync, and footer switcher**
 
 Update `quota-tray/ui/src/App.svelte`:
 
@@ -1266,12 +1266,12 @@ Update `quota-tray/ui/src/App.svelte`:
 </style>
 ```
 
-- [ ] **Step 2: Build verification**
+- [x] **Step 2: Build verification**
 
 Run: `npm run build` in `quota-tray/ui`
 Expected: PASS with 0 errors
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add ui/src/App.svelte
@@ -1285,7 +1285,7 @@ git commit -m "feat: integrate palette synchronization and quick switcher in tra
 **Files:**
 - Modify: `quota-tray/ui/src/SettingsApp.svelte`
 
-- [ ] **Step 1: Add Color Palette radio cards in `SettingsApp.svelte`**
+- [x] **Step 1: Add Color Palette radio cards in `SettingsApp.svelte`**
 
 Update `quota-tray/ui/src/SettingsApp.svelte` to import `PALETTE_OPTIONS`, `initPalette`, `applyPalette`, `readPalette`, and `type PaletteId`, and add a dedicated "Color Palette" card under Appearance:
 
@@ -1729,12 +1729,12 @@ Update `quota-tray/ui/src/SettingsApp.svelte` to import `PALETTE_OPTIONS`, `init
 </style>
 ```
 
-- [ ] **Step 2: Build verification**
+- [x] **Step 2: Build verification**
 
 Run: `npm run build` in `quota-tray/ui`
 Expected: PASS with 0 errors
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add ui/src/SettingsApp.svelte
@@ -1748,17 +1748,17 @@ git commit -m "feat: add Color Palette selection grid in SettingsApp"
 **Files:**
 - Test: All tests in `quota-tray/ui`
 
-- [ ] **Step 1: Run full unit test suite**
+- [x] **Step 1: Run full unit test suite**
 
 Run: `npm test` in `quota-tray/ui`
 Expected: All tests pass across `theme.test.ts`, `format.test.ts`, and `settings_validate.test.ts`.
 
-- [ ] **Step 2: Run production build**
+- [x] **Step 2: Run production build**
 
 Run: `npm run build` in `quota-tray/ui`
 Expected: `dist/index.html` and `dist/settings.html` bundled successfully without errors or warnings.
 
-- [ ] **Step 3: Final verification commit**
+- [x] **Step 3: Final verification commit**
 
 ```bash
 git add .
