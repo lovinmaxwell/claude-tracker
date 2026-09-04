@@ -5,10 +5,12 @@
   import ProviderRow from "./lib/components/ProviderRow.svelte";
   import EmptyState from "./lib/components/EmptyState.svelte";
   import { fetchTrayState, onTrayStateUpdated } from "./lib/api";
+  import { initPalette, applyPalette, cyclePalette, readPalette, type PaletteId } from "./lib/theme";
   import type { TrayState } from "./lib/types";
 
   let state = $state<TrayState | null>(null);
   let loadError = $state<string | null>(null);
+  let currentPalette = $state<PaletteId>("studio");
 
   async function refresh() {
     try {
@@ -19,14 +21,23 @@
     }
   }
 
+  function handleCyclePalette() {
+    const next = cyclePalette(currentPalette);
+    currentPalette = next;
+    applyPalette(next);
+  }
+
   onMount(() => {
+    currentPalette = initPalette();
     refresh();
+
     let unlisten: (() => void) | undefined;
     onTrayStateUpdated(() => {
       refresh();
     }).then((u) => {
       unlisten = u;
     });
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -34,9 +45,19 @@
       }
     };
     window.addEventListener("keydown", onKey);
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "quota-tray-palette") {
+        currentPalette = readPalette();
+        applyPalette(currentPalette);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
     return () => {
       unlisten?.();
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("storage", onStorage);
     };
   });
 
@@ -68,20 +89,25 @@
       body="Turn on Claude, Cursor, or Copilot in Settings. Tokens stay on this Mac."
     />
   {:else if state && state.providers.length > 0}
-    <section class="sheet" aria-label="Providers">
-      <div class="sheet-head">
-        <h2>Usage by provider</h2>
-        <span>{state.providers.length}</span>
+    <section class="providers-section" aria-label="Providers">
+      <div class="list">
+        {#each state.providers as snap, i (snap.provider)}
+          <ProviderRow {snap} index={i} />
+        {/each}
       </div>
-      {#each state.providers as snap, i (snap.provider)}
-        <ProviderRow {snap} index={i} />
-      {/each}
     </section>
   {/if}
 
-  <footer>
-    <a class="ghost" href="settings.html">Settings</a>
-    <button type="button" class="ghost" onclick={refresh}>Refresh</button>
+  <footer class="hud-footer">
+    <div class="footer-left">
+      <a class="btn-action" href="settings.html">Settings</a>
+      <button type="button" class="btn-action" onclick={handleCyclePalette} title="Cycle theme palette">
+        🎨 {currentPalette}
+      </button>
+    </div>
+    <div class="footer-right">
+      <button type="button" class="btn-action" onclick={refresh}>↻ Refresh</button>
+    </div>
   </footer>
 </main>
 
@@ -91,72 +117,67 @@
     display: flex;
     flex-direction: column;
     background: var(--sheet);
-    /* Native undecorated window supplies shadow; hairline only. */
     border: 0.5px solid var(--popover-stroke);
     border-radius: 12px;
     overflow: hidden;
     margin: 0;
   }
-  .sheet {
-    margin: 0 0.85rem;
-    background: color-mix(in srgb, var(--pale) 92%, transparent);
-    border: 0.5px solid var(--popover-stroke);
-    border-radius: 10px;
-    overflow: hidden;
-    animation: rise-in 420ms var(--ease) both;
-    animation-delay: 60ms;
+
+  .providers-section {
+    padding: 0.75rem 0.85rem 0.5rem;
+    animation: rise-in 360ms var(--ease) both;
   }
-  .sheet-head {
+
+  .list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hud-footer {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    padding: 0.7rem 0.9rem 0.3rem;
-  }
-  .sheet-head h2 {
-    margin: 0;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-muted);
-  }
-  .sheet-head span {
-    font-size: 0.72rem;
-    color: var(--ink-muted);
-  }
-  footer {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.85rem 1rem 1rem;
+    align-items: center;
+    padding: 0.65rem 0.85rem;
     margin-top: auto;
     border-top: 0.5px solid var(--popover-stroke);
+    background: color-mix(in srgb, var(--pale) 40%, transparent);
   }
-  .ghost {
+
+  .footer-left,
+  .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .btn-action {
     appearance: none;
     background: transparent;
     border: 0.5px solid var(--popover-stroke);
-    border-radius: 6px;
+    border-radius: 5px;
     color: var(--ink);
-    padding: 0.32rem 0.7rem;
+    padding: 0.28rem 0.55rem;
     font: inherit;
-    font-size: 0.82rem;
-    font-weight: 500;
+    font-size: 0.75rem;
+    font-weight: 550;
     text-decoration: none;
     cursor: pointer;
+    text-transform: capitalize;
+    transition: background 140ms ease;
   }
-  .ghost:hover {
-    background: color-mix(in srgb, var(--cream-deep) 55%, transparent);
+  .btn-action:hover {
+    background: color-mix(in srgb, var(--card-bg) 90%, transparent);
   }
+
   .banner {
-    margin: 0 0.85rem 0.55rem;
-    padding: 0.55rem 0.7rem;
+    margin: 0.6rem 0.85rem 0.3rem;
+    padding: 0.45rem 0.65rem;
     color: var(--ink-muted);
-    font-size: 0.86rem;
-    line-height: 1.35;
+    font-size: 0.82rem;
+    line-height: 1.3;
     background: var(--pale);
     border: 0.5px solid var(--popover-stroke);
-    border-radius: 8px;
+    border-radius: 6px;
   }
   .banner.warn {
     color: var(--danger);
