@@ -1,8 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { ProviderSnapshot } from "../types";
-  import { formatHeadlinePercent, meterWidthPercent } from "../format";
-  import WindowGauge from "./WindowGauge.svelte";
+  import type { ProviderSnapshot, UsageWindow } from "../types";
+  import {
+    formatHeadlinePercent,
+    segmentedActiveCount,
+    isWarningSegment,
+  } from "../format";
 
   interface Props {
     snap: ProviderSnapshot;
@@ -27,161 +30,288 @@
           ? "Copilot"
           : "OpenAI"
   );
-  const chip = $derived(
+  const vendor = $derived(
     snap.provider === "Claude"
-      ? "var(--chip-claude)"
+      ? "Anthropic"
       : snap.provider === "Cursor"
-        ? "var(--chip-cursor)"
-        : "var(--chip-copilot)"
+        ? "Anysphere"
+        : snap.provider === "Copilot"
+          ? "GitHub"
+          : "OpenAI"
   );
-  const width = $derived(meterWidthPercent(snap.headline_percent));
-  const shownWidth = $derived(fillReady ? (width ?? 0) : 0);
+  const providerClass = $derived(
+    snap.provider === "Claude"
+      ? "claude"
+      : snap.provider === "Cursor"
+        ? "cursor"
+        : "copilot"
+  );
+
+  const totalSegments = 12;
+  const activeSegments = $derived(
+    segmentedActiveCount(snap.headline_percent, totalSegments)
+  );
+  const isHighUsage = $derived((snap.headline_percent ?? 0) >= 75);
+
   const remaining = $derived(
     snap.headline_percent == null
       ? null
-      : Math.max(0, Math.round((100 - snap.headline_percent) * 10) / 10)
+      : Math.max(0, Math.round(100 - snap.headline_percent))
   );
+
+  function windowUsed(w: UsageWindow): number | null {
+    return "Percent" in w.kind ? w.kind.Percent.used : null;
+  }
+
+  function windowTokenDetails(w: UsageWindow): string | null {
+    if ("TokenCount" in w.kind) {
+      const u = w.kind.TokenCount.used;
+      const l = w.kind.TokenCount.limit;
+      return l != null ? `${u.toLocaleString()} / ${l.toLocaleString()}` : `${u.toLocaleString()} tokens`;
+    }
+    return null;
+  }
 </script>
 
-<article class="row" style={`animation-delay: ${120 + index * 70}ms`}>
-  <div class="top">
-    <span class="chip" style={`background: ${chip}`}>{name}</span>
-    {#if snap.stale}
-      <span class="badge">Stale</span>
-    {/if}
-    <span class="pct" style={`color: ${chip}`}>{formatHeadlinePercent(snap.headline_percent)}</span>
+<article class="provider-card" style={`animation-delay: ${60 + index * 50}ms`}>
+  <div class="card-head">
+    <div class="identity">
+      <span class={`vendor-tag tag-${providerClass}`}>{vendor}</span>
+      <span class="name">{name}</span>
+      {#if snap.stale}
+        <span class="stale-badge">Stale</span>
+      {/if}
+    </div>
+    <div class="figures">
+      <span class={`pct pct-${providerClass}`} class:warn={isHighUsage}>
+        {formatHeadlinePercent(snap.headline_percent)}
+      </span>
+      {#if remaining != null}
+        <span class="left">{remaining}% left</span>
+      {:else}
+        <span class="left">Waiting</span>
+      {/if}
+    </div>
   </div>
-  <div class="track" aria-hidden="true">
-    {#if width != null}
+
+  <!-- 12-Segment Precision Bar -->
+  <div class="segmented-track" class:stale={snap.stale} aria-label={`${name} usage: ${formatHeadlinePercent(snap.headline_percent)}`}>
+    {#each Array(totalSegments) as _, i}
+      {@const isActive = activeSegments != null && fillReady && i < activeSegments}
+      {@const isWarn = isActive && isWarningSegment(i, totalSegments)}
       <div
-        class="fill"
-        class:muted={snap.stale}
-        class:ready={fillReady}
-        style={`--w: ${shownWidth}%; background: ${chip}`}
+        class="seg-block"
+        class:active={isActive}
+        class:warn={isWarn}
+        class:inactive={!isActive && activeSegments != null}
+        class:scanning={activeSegments == null}
+        class:claude={isActive && !isWarn && snap.provider === "Claude"}
+        class:cursor={isActive && !isWarn && snap.provider === "Cursor"}
+        class:copilot={isActive && !isWarn && snap.provider !== "Claude" && snap.provider !== "Cursor"}
+        style={`transition-delay: ${i * 24}ms; animation-delay: ${i * 60}ms`}
       ></div>
-    {:else}
-      <div class="unknown"></div>
-    {/if}
+    {/each}
   </div>
-  <div class="sub">
-    {#if remaining != null}
-      <span>{remaining}% left</span>
-    {:else}
-      <span>No reading yet</span>
-    {/if}
-    {#if snap.fetched_at}
-      <span class="when">Updated {snap.fetched_at}</span>
-    {/if}
-  </div>
+
   {#if snap.error}
     <p class="err">{snap.error}</p>
   {/if}
-  {#if snap.windows.length > 1}
-    <div class="windows">
+
+  {#if snap.windows.length > 0}
+    <ul class="subwindows">
       {#each snap.windows as w (w.id)}
-        <WindowGauge window={w} accent={chip} />
+        <li class="subwindow-item">
+          <span class="w-label">
+            {w.label}
+            {#if w.resets_at}
+              <span class="w-reset">· Resets {w.resets_at}</span>
+            {/if}
+          </span>
+          {#if windowTokenDetails(w)}
+            <span class="w-val">{windowTokenDetails(w)}</span>
+          {:else}
+            <span class="w-val">{formatHeadlinePercent(windowUsed(w))}</span>
+          {/if}
+        </li>
       {/each}
-    </div>
-  {:else if snap.windows.length === 1}
-    <WindowGauge window={snap.windows[0]} accent={chip} />
+    </ul>
   {/if}
 </article>
 
 <style>
-  .row {
-    padding: 0.95rem 1rem;
-    border-top: 1px solid var(--cream-line);
-    animation: rise-in 480ms var(--ease) both;
+  .provider-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 0.85rem;
+    margin-bottom: 0.6rem;
+    animation: rise-in 380ms var(--ease) both;
+    transition: background 180ms ease, border-color 180ms ease;
   }
-  .row:first-child {
-    border-top: 0;
+  .provider-card:hover {
+    background: var(--card-hover);
   }
-  .top {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+  .provider-card:last-child {
+    margin-bottom: 0;
   }
-  .chip {
-    color: #fff;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    padding: 0.22rem 0.58rem;
-    border-radius: 999px;
-  }
-  .pct {
-    font-weight: 700;
-    margin-left: auto;
-    font-variant-numeric: tabular-nums;
-    font-size: 1.05rem;
-  }
-  .badge {
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--danger);
-    background: color-mix(in srgb, var(--danger) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
-    border-radius: 999px;
-    padding: 0.12rem 0.45rem;
-  }
-  .track {
-    margin-top: 0.55rem;
-    height: 13px;
-    background: var(--cream-deep);
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  .fill {
-    height: 100%;
-    width: var(--w, 0%);
-    border-radius: inherit;
-    transform-origin: left center;
-    transform: scaleX(0);
-  }
-  .fill.ready {
-    transform: scaleX(1);
-    animation: fill-x var(--fill-duration) var(--ease-fill) both;
-    animation-delay: calc(80ms + var(--i, 0) * 1ms);
-  }
-  .fill.muted {
-    opacity: 0.42;
-  }
-  .unknown {
-    height: 100%;
-    width: 100%;
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 4px,
-      color-mix(in srgb, var(--ink) 8%, transparent) 4px,
-      color-mix(in srgb, var(--ink) 8%, transparent) 8px
-    );
-    animation: pulse-soft 1.6s ease-in-out infinite;
-  }
-  .sub {
+
+  .card-head {
     display: flex;
     justify-content: space-between;
+    align-items: baseline;
     gap: 0.5rem;
-    margin-top: 0.35rem;
-    font-size: 0.72rem;
+  }
+
+  .identity {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .vendor-tag {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: #ffffff;
+  }
+  .tag-claude {
+    background: var(--chip-claude);
+  }
+  .tag-cursor {
+    background: var(--chip-cursor);
+  }
+  .tag-copilot {
+    background: var(--chip-copilot);
+  }
+
+  .name {
+    font-weight: 650;
+    font-size: 0.88rem;
+    letter-spacing: -0.01em;
+  }
+
+  .stale-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+    border-radius: 3px;
+    padding: 0.05rem 0.3rem;
+  }
+
+  .figures {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+  }
+
+  .pct {
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .pct-claude {
+    color: var(--chip-claude);
+  }
+  .pct-cursor {
+    color: var(--chip-cursor);
+  }
+  .pct-copilot {
+    color: var(--chip-copilot);
+  }
+  .pct.warn {
+    color: var(--seg-warn);
+  }
+
+  .left {
+    font-size: 0.68rem;
     color: var(--ink-muted);
   }
-  .when {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 55%;
+
+  /* 12-segment precision track */
+  .segmented-track {
+    display: flex;
+    gap: 3px;
+    height: 8px;
+    margin-top: 0.5rem;
   }
+  .segmented-track.stale {
+    opacity: 0.45;
+  }
+
+  .seg-block {
+    flex: 1;
+    border-radius: 2px;
+    background: var(--seg-inactive);
+    transition: background 300ms var(--ease), box-shadow 300ms var(--ease);
+  }
+
+  .seg-block.claude {
+    background: var(--seg-active-claude);
+    box-shadow: var(--seg-glow-claude);
+  }
+  .seg-block.cursor {
+    background: var(--seg-active-cursor);
+    box-shadow: var(--seg-glow-cursor);
+  }
+  .seg-block.copilot {
+    background: var(--seg-active-copilot);
+    box-shadow: var(--seg-glow-copilot);
+  }
+  .seg-block.warn {
+    background: var(--seg-warn);
+    box-shadow: var(--seg-glow-warn);
+  }
+
+  .seg-block.scanning {
+    animation: seg-scan 1.2s ease-in-out infinite;
+  }
+
   .err {
     margin: 0.4rem 0 0;
     color: var(--danger);
-    font-size: 0.8rem;
-    line-height: 1.35;
+    font-size: 0.72rem;
+    line-height: 1.3;
   }
-  .windows {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.55rem;
-    margin-top: 0.15rem;
+
+  /* Subwindows */
+  .subwindows {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .subwindow-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.45rem;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--pale) 60%, transparent);
+  }
+
+  .w-label {
+    color: var(--ink-muted);
+  }
+  .w-reset {
+    opacity: 0.75;
+  }
+
+  .w-val {
+    font-weight: 650;
+    font-family: var(--font-mono);
+    color: var(--ink);
   }
 </style>
