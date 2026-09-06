@@ -1,8 +1,8 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, PhysicalPosition, Position, Rect, Runtime, Size, WebviewUrl,
-    WebviewWindow, WebviewWindowBuilder,
+    AppHandle, Manager, PhysicalPosition, Position, Rect, Runtime, Size, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder,
 };
 
 const PANEL_WIDTH: f64 = 360.0;

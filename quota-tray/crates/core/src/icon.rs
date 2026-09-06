@@ -149,8 +149,7 @@ pub fn render_mascot_rgba(percent_used: Option<f64>, pixel_size: u32) -> Vec<u8>
     let body_h = (body_max - body_min + 1) as f64;
     let fill_rows = ((fill_pct / 100.0) * body_h).round() as usize;
 
-    let mut img: RgbaImage =
-        ImageBuffer::from_pixel(pixel_size, pixel_size, TRANSPARENT.to_rgba());
+    let mut img: RgbaImage = ImageBuffer::from_pixel(pixel_size, pixel_size, TRANSPARENT.to_rgba());
 
     for (y, line) in MASCOT_ART.iter().enumerate() {
         for (x, ch) in line.chars().enumerate() {
@@ -181,10 +180,7 @@ pub fn render_mascot_rgba(percent_used: Option<f64>, pixel_size: u32) -> Vec<u8>
     img.into_raw()
 }
 
-pub fn render_mascot_png(
-    percent_used: Option<f64>,
-    pixel_size: u32,
-) -> Result<Vec<u8>, IconError> {
+pub fn render_mascot_png(percent_used: Option<f64>, pixel_size: u32) -> Result<Vec<u8>, IconError> {
     let raw = render_mascot_rgba(percent_used, pixel_size);
     let img: RgbaImage = ImageBuffer::from_raw(pixel_size, pixel_size, raw)
         .ok_or_else(|| IconError::Encode("buffer size mismatch".into()))?;
@@ -232,7 +228,10 @@ fn dist_to_curved_capsule(
         let (ex, ey) = if past_end < std::f64::consts::PI {
             (cx + r_mid * end_theta.cos(), cy + r_mid * end_theta.sin())
         } else {
-            (cx + r_mid * start_theta.cos(), cy + r_mid * start_theta.sin())
+            (
+                cx + r_mid * start_theta.cos(),
+                cy + r_mid * start_theta.sin(),
+            )
         };
         let edx = px - ex;
         let edy = py - ey;
@@ -294,9 +293,12 @@ fn paint_pill(
                 let da = pixel[3] as f64 / 255.0;
                 let out_a = sa + da * (1.0 - sa);
                 if out_a > 0.0 {
-                    let out_r = ((color.r as f64 * sa + pixel[0] as f64 * da * (1.0 - sa)) / out_a).round() as u8;
-                    let out_g = ((color.g as f64 * sa + pixel[1] as f64 * da * (1.0 - sa)) / out_a).round() as u8;
-                    let out_b = ((color.b as f64 * sa + pixel[2] as f64 * da * (1.0 - sa)) / out_a).round() as u8;
+                    let out_r = ((color.r as f64 * sa + pixel[0] as f64 * da * (1.0 - sa)) / out_a)
+                        .round() as u8;
+                    let out_g = ((color.g as f64 * sa + pixel[1] as f64 * da * (1.0 - sa)) / out_a)
+                        .round() as u8;
+                    let out_b = ((color.b as f64 * sa + pixel[2] as f64 * da * (1.0 - sa)) / out_a)
+                        .round() as u8;
                     *pixel = Rgba([out_r, out_g, out_b, (out_a * 255.0).round() as u8]);
                 }
             }
@@ -326,11 +328,7 @@ pub fn paint_provider_segments(img: &mut RgbaImage, providers: &[ProviderSnapsho
             let filled = (frac * TOTAL_PILLS as f64).round() as usize;
             for (i, slot) in pill_colors.iter_mut().enumerate() {
                 if i < filled {
-                    let c = if i >= 9 {
-                        WARNING_CORAL
-                    } else {
-                        chip
-                    };
+                    let c = if i >= 9 { WARNING_CORAL } else { chip };
                     *slot = if unavailable { c.with_alpha(140) } else { c };
                 } else if unavailable && snap.headline_percent.is_none() {
                     *slot = TRACK_MUTED.with_alpha(40);
@@ -399,8 +397,8 @@ pub fn render_tray_rgba(state: &TrayState, pixel_size: u32) -> Vec<u8> {
         mascot_size
     };
     let mascot_raw = render_mascot_rgba(state.shared_mascot_fill, mascot_size);
-    let mascot: RgbaImage = ImageBuffer::from_raw(mascot_size, mascot_size, mascot_raw)
-        .expect("mascot buffer size");
+    let mascot: RgbaImage =
+        ImageBuffer::from_raw(mascot_size, mascot_size, mascot_raw).expect("mascot buffer size");
     blit_centered(&mut canvas, &mascot);
     paint_provider_segments(&mut canvas, &state.providers);
     canvas.into_raw()
@@ -410,13 +408,10 @@ pub fn render_tray_rgba(state: &TrayState, pixel_size: u32) -> Vec<u8> {
 pub fn paint_tray_icon(state: &TrayState) -> Vec<u8> {
     const TRAY_PIXEL_SIZE: u32 = 32;
     let raw = render_tray_rgba(state, TRAY_PIXEL_SIZE);
-    let img: RgbaImage = ImageBuffer::from_raw(TRAY_PIXEL_SIZE, TRAY_PIXEL_SIZE, raw)
-        .expect("tray buffer size");
+    let img: RgbaImage =
+        ImageBuffer::from_raw(TRAY_PIXEL_SIZE, TRAY_PIXEL_SIZE, raw).expect("tray buffer size");
     let mut cursor = Cursor::new(Vec::new());
-    if img
-        .write_to(&mut cursor, image::ImageFormat::Png)
-        .is_ok()
-    {
+    if img.write_to(&mut cursor, image::ImageFormat::Png).is_ok() {
         return cursor.into_inner();
     }
     render_mascot_png(None, TRAY_PIXEL_SIZE).expect("encode empty mascot png")

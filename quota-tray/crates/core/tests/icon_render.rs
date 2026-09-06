@@ -116,8 +116,14 @@ fn pill_ring_differs_across_quota_thresholds() {
     assert_ne!(warn_buf, full_buf);
 
     // Canvas edges (0, 0) must be 100% transparent (no background container)
-    assert_eq!(empty_buf[3], 0, "corner pixel alpha must be 0 (transparent)");
-    assert_eq!(quarter_buf[3], 0, "corner pixel alpha must be 0 (transparent)");
+    assert_eq!(
+        empty_buf[3], 0,
+        "corner pixel alpha must be 0 (transparent)"
+    );
+    assert_eq!(
+        quarter_buf[3], 0,
+        "corner pixel alpha must be 0 (transparent)"
+    );
     assert_eq!(warn_buf[3], 0, "corner pixel alpha must be 0 (transparent)");
 }
 
@@ -139,9 +145,33 @@ fn warning_threshold_activates_alert_color_on_upper_pills() {
 
     let rgba_80 = render_tray_rgba(&alert_80, 32);
     // Alert coral is #D94B34 (217, 75, 52). Verify presence in pixels.
-    let has_alert_coral = rgba_80.chunks(4).any(|px| {
-        px[0] == 0xD9 && px[1] == 0x4B && px[2] == 0x34
-    });
-    assert!(has_alert_coral, "alert state must contain WARNING_CORAL (#D94B34) pixels");
+    let has_alert_coral = rgba_80
+        .chunks(4)
+        .any(|px| px[0] == 0xD9 && px[1] == 0x4B && px[2] == 0x34);
+    assert!(
+        has_alert_coral,
+        "alert state must contain WARNING_CORAL (#D94B34) pixels"
+    );
 }
 
+#[test]
+fn generates_sample_png_assets() {
+    let scratch_dir = std::path::Path::new("/Users/lovinmaxwell/.gemini/antigravity-ide/brain/7da05395-a586-44ff-9545-331e7cf38762/scratch");
+    if !scratch_dir.exists() {
+        return;
+    }
+    for &(name, pct) in &[
+        ("tray_0pct.png", Some(0.0)),
+        ("tray_25pct.png", Some(25.0)),
+        ("tray_50pct.png", Some(50.0)),
+        ("tray_75pct.png", Some(75.0)),
+        ("tray_100pct.png", Some(100.0)),
+    ] {
+        let state = TrayState {
+            providers: vec![snap(ProviderId::Claude, pct, false)],
+            shared_mascot_fill: pct,
+        };
+        let png = paint_tray_icon(&state);
+        let _ = std::fs::write(scratch_dir.join(name), png);
+    }
+}
