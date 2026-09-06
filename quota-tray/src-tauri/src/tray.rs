@@ -13,7 +13,14 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&quit])?;
 
-    let _tray = TrayIconBuilder::with_id("main")
+    let initial_state = quota_tray_core::TrayState {
+        providers: vec![],
+        shared_mascot_fill: None,
+    };
+    let initial_png = quota_tray_core::paint_tray_icon(&initial_state);
+    let initial_icon = tauri::image::Image::from_bytes(&initial_png).ok();
+
+    let mut builder = TrayIconBuilder::with_id("main")
         .tooltip("Quota Tray")
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -33,8 +40,13 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
                 let app = tray.app_handle();
                 toggle_panel(app, Some(rect));
             }
-        })
-        .build(app)?;
+        });
+
+    if let Some(icon) = initial_icon {
+        builder = builder.icon(icon);
+    }
+
+    let _tray = builder.build(app)?;
 
     Ok(())
 }

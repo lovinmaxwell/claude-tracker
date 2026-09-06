@@ -40,6 +40,7 @@ fn apply_tray_icon(tray: &TrayIcon, state: &quota_tray_core::TrayState) {
     if let Ok(icon) = tauri::image::Image::from_bytes(&png) {
         let _ = tray.set_icon(Some(icon));
     }
+    let _ = tray.set_title(None::<&str>);
     let tooltip = state
         .providers
         .iter()
