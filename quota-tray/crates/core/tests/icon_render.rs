@@ -86,3 +86,62 @@ fn muted_empty_segment_still_paints_pixels_when_headline_none() {
     let opaque = a.chunks(4).filter(|px| px[3] > 0).count();
     assert!(opaque > 40, "expected muted track pixels, got {opaque}");
 }
+
+#[test]
+fn pill_ring_differs_across_quota_thresholds() {
+    let empty_state = TrayState {
+        providers: vec![snap(ProviderId::Claude, Some(0.0), false)],
+        shared_mascot_fill: Some(0.0),
+    };
+    let quarter_state = TrayState {
+        providers: vec![snap(ProviderId::Claude, Some(25.0), false)],
+        shared_mascot_fill: Some(25.0),
+    };
+    let warn_state = TrayState {
+        providers: vec![snap(ProviderId::Claude, Some(75.0), false)],
+        shared_mascot_fill: Some(75.0),
+    };
+    let full_state = TrayState {
+        providers: vec![snap(ProviderId::Claude, Some(100.0), false)],
+        shared_mascot_fill: Some(100.0),
+    };
+
+    let empty_buf = render_tray_rgba(&empty_state, 32);
+    let quarter_buf = render_tray_rgba(&quarter_state, 32);
+    let warn_buf = render_tray_rgba(&warn_state, 32);
+    let full_buf = render_tray_rgba(&full_state, 32);
+
+    assert_ne!(empty_buf, quarter_buf);
+    assert_ne!(quarter_buf, warn_buf);
+    assert_ne!(warn_buf, full_buf);
+
+    // Canvas edges (0, 0) must be 100% transparent (no background container)
+    assert_eq!(empty_buf[3], 0, "corner pixel alpha must be 0 (transparent)");
+    assert_eq!(quarter_buf[3], 0, "corner pixel alpha must be 0 (transparent)");
+    assert_eq!(warn_buf[3], 0, "corner pixel alpha must be 0 (transparent)");
+}
+
+#[test]
+fn warning_threshold_activates_alert_color_on_upper_pills() {
+    let normal_70 = TrayState {
+        providers: vec![snap(ProviderId::Claude, Some(70.0), false)],
+        shared_mascot_fill: Some(70.0),
+    };
+    let alert_80 = TrayState {
+        providers: vec![snap(ProviderId::Claude, Some(80.0), false)],
+        shared_mascot_fill: Some(80.0),
+    };
+
+    let png_70 = paint_tray_icon(&normal_70);
+    let png_80 = paint_tray_icon(&alert_80);
+
+    assert_ne!(png_70, png_80);
+
+    let rgba_80 = render_tray_rgba(&alert_80, 32);
+    // Alert coral is #D94B34 (217, 75, 52). Verify presence in pixels.
+    let has_alert_coral = rgba_80.chunks(4).any(|px| {
+        px[0] == 0xD9 && px[1] == 0x4B && px[2] == 0x34
+    });
+    assert!(has_alert_coral, "alert state must contain WARNING_CORAL (#D94B34) pixels");
+}
+

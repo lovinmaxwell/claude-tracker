@@ -63,6 +63,24 @@ pub const TERRACOTTA: RgbaColor = RgbaColor {
     a: 255,
 };
 
+/// Alert warning coral (#D94B34) for >= 75% usage.
+pub const WARNING_CORAL: RgbaColor = RgbaColor {
+    r: 0xD9,
+    g: 0x4B,
+    b: 0x34,
+    a: 255,
+};
+
+/// Muted track for inactive pill capsules in the segmented ring.
+pub const TRACK_MUTED: RgbaColor = RgbaColor {
+    r: 0xDF,
+    g: 0xD2,
+    b: 0xC4,
+    a: 70,
+};
+
+pub const TOTAL_PILLS: usize = 12;
+
 /// Pale cream unspent body.
 pub const CREAM: RgbaColor = RgbaColor {
     r: 0xF5,
@@ -190,119 +208,179 @@ fn blit_centered(dst: &mut RgbaImage, src: &RgbaImage) {
     }
 }
 
-fn angle_in_arc(theta: f64, start: f64, end: f64) -> bool {
-    let t = theta.rem_euclid(TAU);
-    let s = start.rem_euclid(TAU);
-    let e = end.rem_euclid(TAU);
-    if (e - s).abs() < f64::EPSILON {
-        return false;
-    }
-    if s <= e {
-        t >= s && t <= e
+fn dist_to_curved_capsule(
+    px: f64,
+    py: f64,
+    cx: f64,
+    cy: f64,
+    r_mid: f64,
+    start_theta: f64,
+    end_theta: f64,
+) -> f64 {
+    let dx = px - cx;
+    let dy = py - cy;
+    let r = (dx * dx + dy * dy).sqrt();
+    let theta = dy.atan2(dx);
+
+    let arc_len = (end_theta - start_theta).rem_euclid(TAU);
+    let delta = (theta - start_theta).rem_euclid(TAU);
+
+    if delta <= arc_len {
+        (r - r_mid).abs()
     } else {
-        // wrap across 0
-        t >= s || t <= e
+        let past_end = (theta - end_theta).rem_euclid(TAU);
+        let (ex, ey) = if past_end < std::f64::consts::PI {
+            (cx + r_mid * end_theta.cos(), cy + r_mid * end_theta.sin())
+        } else {
+            (cx + r_mid * start_theta.cos(), cy + r_mid * start_theta.sin())
+        };
+        let edx = px - ex;
+        let edy = py - ey;
+        (edx * edx + edy * edy).sqrt()
     }
 }
 
-fn paint_ring_pixel(
+fn paint_pill(
     img: &mut RgbaImage,
     cx: f64,
     cy: f64,
-    inner_r: f64,
-    outer_r: f64,
-    start: f64,
-    end: f64,
+    r_mid: f64,
+    r_cap: f64,
+    start_theta: f64,
+    end_theta: f64,
     color: RgbaColor,
-    dashed: bool,
 ) {
+    if color.a == 0 {
+        return;
+    }
+    let r_max = r_mid + r_cap + 1.0;
+    let r_min = (r_mid - r_cap - 1.0).max(0.0);
+    let r_max2 = r_max * r_max;
+    let r_min2 = r_min * r_min;
+
     let w = img.width();
     let h = img.height();
+
     for y in 0..h {
+        let py = y as f64 + 0.5;
+        let dy = py - cy;
+        let dy2 = dy * dy;
+
         for x in 0..w {
-            let dx = x as f64 + 0.5 - cx;
-            let dy = y as f64 + 0.5 - cy;
-            let r = (dx * dx + dy * dy).sqrt();
-            if r < inner_r || r > outer_r {
+            let px = x as f64 + 0.5;
+            let dx = px - cx;
+            let r2 = dx * dx + dy2;
+
+            if r2 < r_min2 || r2 > r_max2 {
                 continue;
             }
-            let theta = dy.atan2(dx);
-            if !angle_in_arc(theta, start, end) {
+
+            let d = dist_to_curved_capsule(px, py, cx, cy, r_mid, start_theta, end_theta);
+            if d >= r_cap + 0.5 {
                 continue;
             }
-            if dashed {
-                // ~8 dashes around a full circle
-                let dash_bin = ((theta.rem_euclid(TAU) / TAU) * 16.0).floor() as i32;
-                if dash_bin % 2 != 0 {
-                    continue;
+
+            let cov = (r_cap + 0.5 - d).clamp(0.0, 1.0);
+            let src_a = (color.a as f64 * cov).round() as u8;
+            if src_a == 0 {
+                continue;
+            }
+
+            let pixel = img.get_pixel_mut(x, y);
+            if pixel[3] == 0 {
+                *pixel = Rgba([color.r, color.g, color.b, src_a]);
+            } else {
+                let sa = src_a as f64 / 255.0;
+                let da = pixel[3] as f64 / 255.0;
+                let out_a = sa + da * (1.0 - sa);
+                if out_a > 0.0 {
+                    let out_r = ((color.r as f64 * sa + pixel[0] as f64 * da * (1.0 - sa)) / out_a).round() as u8;
+                    let out_g = ((color.g as f64 * sa + pixel[1] as f64 * da * (1.0 - sa)) / out_a).round() as u8;
+                    let out_b = ((color.b as f64 * sa + pixel[2] as f64 * da * (1.0 - sa)) / out_a).round() as u8;
+                    *pixel = Rgba([out_r, out_g, out_b, (out_a * 255.0).round() as u8]);
                 }
             }
-            img.put_pixel(x, y, color.to_rgba());
         }
     }
 }
 
-/// Draw one arc segment per enabled provider (chip colors; muted when no %).
+/// Draw 12 discrete curved pill segments around the perimeter.
 pub fn paint_provider_segments(img: &mut RgbaImage, providers: &[ProviderSnapshot]) {
-    let n = providers.len();
-    if n == 0 {
-        return;
-    }
     let cx = img.width() as f64 / 2.0;
     let cy = img.height() as f64 / 2.0;
-    let outer_r = (img.width().min(img.height()) as f64) / 2.0 - 0.5;
-    let inner_r = outer_r - 3.25;
-    let gap = 0.12_f64;
-    let sweep = TAU / n as f64;
+    let scale = (img.width().min(img.height()) as f64) / 32.0;
+    let r_mid = 13.4 * scale;
+    let r_cap = 1.35 * scale;
+    let alpha_half = 0.10_f64;
 
-    for (i, snap) in providers.iter().enumerate() {
-        let start = -FRAC_PI_2 + i as f64 * sweep + gap / 2.0;
-        let end = start + sweep - gap;
+    let mut pill_colors = [TRACK_MUTED; TOTAL_PILLS];
+
+    if providers.is_empty() {
+        // Inactive track pills for all 12 slots when waiting or unconfigured
+    } else if providers.len() == 1 {
+        let snap = &providers[0];
         let chip = chip_color(&snap.provider);
         let unavailable = snap.stale || snap.error.is_some();
-        let muted_empty = snap.headline_percent.is_none();
-
-        // Track (always present for enabled providers).
-        let track = if muted_empty || unavailable {
-            SEGMENT_MUTED
-        } else {
-            chip.with_alpha(90)
-        };
-        paint_ring_pixel(
-            img,
-            cx,
-            cy,
-            inner_r,
-            outer_r,
-            start,
-            end,
-            track,
-            unavailable && muted_empty,
-        );
-
         if let Some(pct) = snap.headline_percent {
             let frac = (pct.clamp(0.0, 100.0) / 100.0).clamp(0.0, 1.0);
-            if frac <= 0.0 {
-                continue;
+            let filled = (frac * TOTAL_PILLS as f64).round() as usize;
+            for (i, slot) in pill_colors.iter_mut().enumerate() {
+                if i < filled {
+                    let c = if i >= 9 {
+                        WARNING_CORAL
+                    } else {
+                        chip
+                    };
+                    *slot = if unavailable { c.with_alpha(140) } else { c };
+                } else if unavailable && snap.headline_percent.is_none() {
+                    *slot = TRACK_MUTED.with_alpha(40);
+                }
             }
-            let fill_end = start + (end - start) * frac;
-            let fill = if unavailable {
-                chip.with_alpha(140)
-            } else {
-                chip
-            };
-            paint_ring_pixel(
-                img,
-                cx,
-                cy,
-                inner_r,
-                outer_r,
-                start,
-                fill_end,
-                fill,
-                unavailable,
-            );
+        } else if unavailable {
+            for slot in pill_colors.iter_mut() {
+                *slot = TRACK_MUTED.with_alpha(40);
+            }
         }
+    } else {
+        let n = providers.len();
+        for (p_idx, snap) in providers.iter().enumerate() {
+            let start_pill = p_idx * TOTAL_PILLS / n;
+            let end_pill = (p_idx + 1) * TOTAL_PILLS / n;
+            let num_pills = end_pill - start_pill;
+            let chip = chip_color(&snap.provider);
+            let unavailable = snap.stale || snap.error.is_some();
+
+            if let Some(pct) = snap.headline_percent {
+                let frac = (pct.clamp(0.0, 100.0) / 100.0).clamp(0.0, 1.0);
+                let filled = (frac * num_pills as f64).round() as usize;
+                let warn_threshold = (num_pills * 3) / 4;
+                for k in 0..num_pills {
+                    let pill_i = start_pill + k;
+                    if k < filled {
+                        let c = if pct >= 75.0 && k >= warn_threshold {
+                            WARNING_CORAL
+                        } else {
+                            chip
+                        };
+                        pill_colors[pill_i] = if unavailable { c.with_alpha(140) } else { c };
+                    } else if unavailable && snap.headline_percent.is_none() {
+                        pill_colors[pill_i] = TRACK_MUTED.with_alpha(40);
+                    }
+                }
+            } else if unavailable {
+                for k in 0..num_pills {
+                    pill_colors[start_pill + k] = TRACK_MUTED.with_alpha(40);
+                }
+            }
+        }
+    }
+
+    let step = TAU / TOTAL_PILLS as f64;
+    for (i, &color) in pill_colors.iter().enumerate() {
+        let theta_mid = -FRAC_PI_2 + (i as f64 + 0.5) * step;
+        let start_theta = theta_mid - alpha_half;
+        let end_theta = theta_mid + alpha_half;
+        paint_pill(img, cx, cy, r_mid, r_cap, start_theta, end_theta, color);
     }
 }
 

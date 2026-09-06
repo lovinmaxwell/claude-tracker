@@ -12,6 +12,7 @@ pub use config::{clamp_poll_interval_secs, AppConfig, ClaudeHeadlineMetric};
 pub use icon::{
     paint_provider_segments, paint_tray_icon, render_mascot_png, render_mascot_rgba,
     render_tray_rgba, IconError, RgbaColor, CREAM, MASCOT_ART, MASCOT_GRID, TERRACOTTA,
+    TOTAL_PILLS, TRACK_MUTED, WARNING_CORAL,
 };
 pub use poller::{waiting_snapshot, Poller};
 pub use provider::{CredentialError, Credentials, FetchError, Provider};
