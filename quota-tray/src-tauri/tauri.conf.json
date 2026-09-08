@@ -34,12 +34,32 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Quota Tray",
+    "copyright": "Copyright (c) 2026 Quota Tray contributors",
+    "category": "Utility",
+    "shortDescription": "Local tray app for Claude Code, Cursor, and GitHub Copilot quota.",
+    "longDescription": "Quota Tray shows remaining AI coding quota for Claude Code, Cursor, and GitHub Copilot in one system tray. Credentials stay on this machine. No Quota Tray servers or telemetry.",
+    "licenseFile": "../../LICENSE",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "silent": true,
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installMode": "both",
+        "displayLanguageSelector": false,
+        "compression": "lzma",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "startMenuFolder": "Quota Tray"
+      }
+    }
   }
 }

@@ -1,0 +1,54 @@
+name: Quota Tray Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "quota-tray/**"
+      - ".github/workflows/quota-tray-windows.yml"
+  pull_request:
+    paths:
+      - "quota-tray/**"
+      - ".github/workflows/quota-tray-windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-nsis:
+    name: NSIS setup.exe
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: quota-tray
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            quota-tray/package-lock.json
+            quota-tray/ui/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: quota-tray
+
+      - name: Install JS dependencies
+        run: |
+          npm ci
+          npm ci --prefix ui
+
+      - name: Build NSIS setup.exe
+        run: npx tauri build --bundles nsis
+
+      - name: Upload Windows setup.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: quota-tray-windows-setup
+          path: quota-tray/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error

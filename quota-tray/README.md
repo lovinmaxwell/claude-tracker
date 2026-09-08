@@ -45,6 +45,12 @@ Deep reference: [`docs/superpowers/specs/_research-providers.md`](../docs/superp
 - Node.js 20+ and npm
 - Xcode CLT (`xcode-select --install`)
 
+## Requirements (Windows)
+
+- Windows 10 1809+ or Windows 11 (x64)
+- Edge WebView2 Runtime (the NSIS setup.exe embeds the bootstrapper if it is missing)
+- Sign in to Claude Code, Cursor, and/or GitHub Copilot in their official apps first so local tokens exist
+
 ## Run on macOS (dev)
 
 ```bash
@@ -67,11 +73,40 @@ Panel: click the menubar icon. Esc hides the panel. Poll interval default **60s*
 ## Build
 
 ```bash
-cd quota-tray/ui && npm run build
-cd ../src-tauri && cargo tauri build
+cd quota-tray
+npm install
+npm run build --prefix ui
+npx tauri build
 ```
 
-Artifacts land under `src-tauri/target/release/bundle/`.
+Artifacts land under `target/release/bundle/` (or `target/<triple>/release/bundle/` when cross-compiling).
+
+### Windows installer (NSIS setup.exe)
+
+The installable file is an NSIS wizard: `Quota Tray_<version>_x64-setup.exe`. It lets you install for the current user or all users, creates Start Menu shortcuts, and can uninstall from Settings.
+
+On a Windows machine:
+
+```bash
+cd quota-tray
+npm install
+npm ci --prefix ui
+npx tauri build --bundles nsis
+```
+
+Output: `target/release/bundle/nsis/Quota Tray_0.1.0_x64-setup.exe`
+
+From Linux/macOS (NSIS + LLVM + [cargo-xwin](https://github.com/rust-cross/cargo-xwin)):
+
+```bash
+# Ubuntu: sudo apt install nsis lld llvm clang
+chmod +x scripts/build-windows-installer.sh
+./scripts/build-windows-installer.sh
+```
+
+Output: `target/x86_64-pc-windows-msvc/release/bundle/nsis/Quota Tray_0.1.0_x64-setup.exe`
+
+GitHub Actions also builds this installer on every change under `quota-tray/` (workflow **Quota Tray Windows installer**; download the `quota-tray-windows-setup` artifact).
 
 ## Workspace layout
 
