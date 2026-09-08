@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cross-compile Quota Tray's Windows NSIS setup.exe from Linux/macOS.
 # Requires: rustup, Node 20+, NSIS, lld, llvm, clang, cargo-xwin
+# Ubuntu also needs libayatana-appindicator3-dev so the Tauri CLI host check passes.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
