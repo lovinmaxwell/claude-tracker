@@ -1,0 +1,42 @@
+name: Quota Tray Chrome extension
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "quota-tray/ui/**"
+      - "quota-tray/src-tauri/icons/**"
+      - "quota-tray/extension/**"
+      - ".github/workflows/quota-tray-extension.yml"
+  pull_request:
+    paths:
+      - "quota-tray/ui/**"
+      - "quota-tray/src-tauri/icons/**"
+      - "quota-tray/extension/**"
+      - ".github/workflows/quota-tray-extension.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    name: Pack unpacked zip
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: quota-tray/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: quota-tray/ui/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:extension
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quota-tray-chrome-extension
+          path: quota-tray/extension/QuotaTray-chrome.zip
+          if-no-files-found: error
