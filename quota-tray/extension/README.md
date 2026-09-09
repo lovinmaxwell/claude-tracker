@@ -16,6 +16,8 @@ Chrome **cannot** read macOS Keychain, Cursor `state.vscdb`, or Copilot `apps.js
 
 Or unzip `quota-tray/extension/QuotaTray-chrome.zip` and load that folder.
 
+Do **not** attach the zip to Microsoft Teams — Defender often flags binaries and packed zips. Share https://github.com/lovinmaxwell/claude-tracker/releases/latest (or clone the repo) instead.
+
 ## First run
 
 1. Pin the Quota Tray icon.

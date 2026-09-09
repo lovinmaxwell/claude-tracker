@@ -48,7 +48,7 @@ Deep reference: [`docs/superpowers/specs/_research-providers.md`](../docs/superp
 ## Requirements (Windows)
 
 - Windows 10 1809+ or Windows 11 (x64)
-- Edge WebView2 Runtime (the NSIS setup.exe embeds the bootstrapper if it is missing)
+- Edge WebView2 Runtime (Windows 11 includes it; the NSIS setup downloads the official bootstrapper from Microsoft if it is missing)
 - Sign in to Claude Code, Cursor, and/or GitHub Copilot in their official apps first so local tokens exist
 
 ## Run on macOS (dev)
@@ -106,7 +106,19 @@ chmod +x scripts/build-windows-installer.sh
 
 Output: `target/x86_64-pc-windows-msvc/release/bundle/nsis/Quota Tray_0.1.0_x64-setup.exe`
 
-GitHub Actions also builds this installer on every change under `quota-tray/` (workflow **Quota Tray Windows installer**; download the `quota-tray-windows-setup` artifact).
+GitHub Actions also builds this installer on every change under `quota-tray/` (workflow **Quota Tray Windows installer**; download the `quota-tray-windows-setup` artifact). Merges to `main` also publish [GitHub Releases](https://github.com/lovinmaxwell/claude-tracker/releases/latest) (`quota-tray-latest`) with a SHA-256 checksum.
+
+### Sharing (Microsoft Teams / Outlook)
+
+Do **not** attach `setup.exe` or a zip of it to Teams or Outlook. Those gateways run Microsoft Defender, which often flags **unsigned NSIS wizards** as malware (false positive). Share a **link** instead:
+
+- Paste [the latest GitHub Release](https://github.com/lovinmaxwell/claude-tracker/releases/latest) in the chat
+- Or paste `https://github.com/lovinmaxwell/claude-tracker` and have them clone
+- Or attach only [`TEAMS-SHARE.txt`](TEAMS-SHARE.txt) (plain text — no binary)
+
+The setup is unsigned (no paid Authenticode certificate). Windows SmartScreen may show **Unknown publisher** → **More info** → **Run anyway**. Verify the SHA-256 on the release against `SHA256SUMS.txt`.
+
+Chrome extension zip can trip the same attachment scanner; use the same GitHub link and Load unpacked.
 
 ### Chrome extension
 

@@ -35,6 +35,7 @@
     "active": true,
     "targets": "all",
     "publisher": "Quota Tray",
+    "homepage": "https://github.com/lovinmaxwell/claude-tracker",
     "copyright": "Copyright (c) 2026 Quota Tray contributors",
     "category": "Utility",
     "shortDescription": "Local tray app for Claude Code, Cursor, and GitHub Copilot quota.",
@@ -50,12 +51,12 @@
     "windows": {
       "webviewInstallMode": {
         "silent": true,
-        "type": "embedBootstrapper"
+        "type": "downloadBootstrapper"
       },
       "nsis": {
         "installMode": "both",
         "displayLanguageSelector": false,
-        "compression": "lzma",
+        "compression": "zlib",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
         "startMenuFolder": "Quota Tray"
