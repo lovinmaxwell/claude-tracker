@@ -1,0 +1,16 @@
+Quota Tray — paste this in Microsoft Teams. Do not attach setup.exe or a zip.
+
+Microsoft Teams runs Defender on attachments. Unsigned NSIS installers (and zips
+that contain them) are often flagged as a virus even when the build is clean.
+
+Download from GitHub instead:
+https://github.com/lovinmaxwell/claude-tracker/releases/latest
+
+Or clone:
+https://github.com/lovinmaxwell/claude-tracker
+
+Windows: run QuotaTray_*_x64-setup.exe (unsigned). If SmartScreen says
+"Unknown publisher", choose More info → Run anyway.
+
+Chrome: unzip QuotaTray-chrome.zip → chrome://extensions → Developer mode →
+Load unpacked → select the unzipped folder (must contain manifest.json).

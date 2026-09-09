@@ -34,9 +34,14 @@ jobs:
           cache-dependency-path: quota-tray/ui/package-lock.json
       - run: npm ci
       - run: npm test
+      - run: node --test ../scripts/write-share-pack.test.mjs
       - run: npm run build:extension
+      - run: node ../scripts/write-share-pack.mjs --chrome
       - uses: actions/upload-artifact@v4
         with:
           name: quota-tray-chrome-extension
-          path: quota-tray/extension/QuotaTray-chrome.zip
+          path: |
+            quota-tray/dist-share/QuotaTray-chrome.zip
+            quota-tray/dist-share/SHA256SUMS.txt
+            quota-tray/dist-share/TEAMS-SHARE.txt
           if-no-files-found: error

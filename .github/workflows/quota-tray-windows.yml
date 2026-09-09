@@ -38,6 +38,9 @@ jobs:
         with:
           workspaces: quota-tray
 
+      - name: Share-pack tests
+        run: node --test scripts/write-share-pack.test.mjs
+
       - name: Install JS dependencies
         run: |
           npm ci
@@ -46,9 +49,21 @@ jobs:
       - name: Build NSIS setup.exe
         run: npx tauri build --bundles nsis
 
+      - name: Write Teams-safe share pack
+        run: node scripts/write-share-pack.mjs --windows
+
       - name: Upload Windows setup.exe
         uses: actions/upload-artifact@v4
         with:
           name: quota-tray-windows-setup
-          path: quota-tray/target/release/bundle/nsis/*-setup.exe
+          path: |
+            quota-tray/dist-share/QuotaTray_*_x64-setup.exe
+            quota-tray/dist-share/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Upload Teams-safe note (no binaries)
+        uses: actions/upload-artifact@v4
+        with:
+          name: quota-tray-teams-share
+          path: quota-tray/dist-share/TEAMS-SHARE.txt
           if-no-files-found: error

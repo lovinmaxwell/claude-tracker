@@ -1,0 +1,123 @@
+name: Publish Quota Tray downloads
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "quota-tray/**"
+      - ".github/workflows/quota-tray-release.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: NSIS setup.exe
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: quota-tray
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            quota-tray/package-lock.json
+            quota-tray/ui/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: quota-tray
+
+      - name: Share-pack tests
+        run: node --test scripts/write-share-pack.test.mjs
+
+      - name: Install JS dependencies
+        run: |
+          npm ci
+          npm ci --prefix ui
+
+      - name: Build NSIS setup.exe
+        run: npx tauri build --bundles nsis
+
+      - name: Write share pack
+        run: node scripts/write-share-pack.mjs --windows
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quota-tray-windows-setup
+          path: |
+            quota-tray/dist-share/QuotaTray_*_x64-setup.exe
+            quota-tray/dist-share/SHA256SUMS.txt
+            quota-tray/dist-share/TEAMS-SHARE.txt
+          if-no-files-found: error
+
+  chrome:
+    name: Pack unpacked zip
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: quota-tray/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: quota-tray/ui/package-lock.json
+      - run: node --test ../scripts/write-share-pack.test.mjs
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:extension
+      - run: node ../scripts/write-share-pack.mjs --chrome
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quota-tray-chrome-extension
+          path: |
+            quota-tray/dist-share/QuotaTray-chrome.zip
+            quota-tray/dist-share/SHA256SUMS.txt
+            quota-tray/dist-share/TEAMS-SHARE.txt
+          if-no-files-found: error
+
+  publish:
+    name: GitHub Release
+    needs: [windows, chrome]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@v4
+        with:
+          name: quota-tray-windows-setup
+          path: quota-tray/dist-share
+      - uses: actions/download-artifact@v4
+        with:
+          name: quota-tray-chrome-extension
+          path: quota-tray/dist-share
+      - name: Combine checksums and Teams note
+        working-directory: quota-tray
+        run: node scripts/write-share-pack.mjs --notes
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: quota-tray-latest
+          name: Quota Tray downloads
+          body_path: quota-tray/dist-share/RELEASE-NOTES.md
+          files: |
+            quota-tray/dist-share/QuotaTray_*_x64-setup.exe
+            quota-tray/dist-share/QuotaTray-chrome.zip
+            quota-tray/dist-share/SHA256SUMS.txt
+            quota-tray/dist-share/TEAMS-SHARE.txt
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          make_latest: true
+          target_commitish: ${{ github.sha }}

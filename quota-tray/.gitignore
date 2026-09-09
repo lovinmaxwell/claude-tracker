@@ -5,5 +5,6 @@ ui/dist/
 ui/dist-extension/
 extension/*.zip
 dist/
+dist-share/
 src-tauri/gen/
 .DS_Store
