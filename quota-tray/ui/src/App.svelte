@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getCurrentWindow } from "@tauri-apps/api/window";
   import Hero from "./lib/components/Hero.svelte";
   import ProviderRow from "./lib/components/ProviderRow.svelte";
   import EmptyState from "./lib/components/EmptyState.svelte";
-  import { fetchTrayState, onTrayStateUpdated } from "./lib/api";
+  import { fetchTrayState, onTrayStateUpdated, refreshNow } from "./lib/api";
+  import { emptyProvidersBody, hidePanel, isChromeExtension } from "./lib/platform";
   import { initPalette, applyPalette, cyclePalette, readPalette, type PaletteId } from "./lib/theme";
   import type { TrayState } from "./lib/types";
 
@@ -12,9 +12,9 @@
   let loadError = $state<string | null>(null);
   let currentPalette = $state<PaletteId>("studio");
 
-  async function refresh() {
+  async function refresh(forceNetwork = false) {
     try {
-      state = await fetchTrayState();
+      state = forceNetwork ? await refreshNow() : await fetchTrayState();
       loadError = null;
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
@@ -29,7 +29,7 @@
 
   onMount(() => {
     currentPalette = initPalette();
-    refresh();
+    refresh(isChromeExtension());
 
     let unlisten: (() => void) | undefined;
     onTrayStateUpdated(() => {
@@ -41,7 +41,7 @@
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        void getCurrentWindow().hide();
+        void hidePanel();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -86,7 +86,7 @@
   {#if state && state.providers.length === 0}
     <EmptyState
       title="No providers yet"
-      body="Turn on Claude, Cursor, or Copilot in Settings. Tokens stay on this Mac."
+      body={emptyProvidersBody()}
     />
   {:else if state && state.providers.length > 0}
     <section class="providers-section" aria-label="Providers">
@@ -106,7 +106,7 @@
       </button>
     </div>
     <div class="footer-right">
-      <button type="button" class="btn-action" onclick={refresh}>↻ Refresh</button>
+      <button type="button" class="btn-action" onclick={() => refresh(true)}>↻ Refresh</button>
     </div>
   </footer>
 </main>

@@ -108,6 +108,20 @@ Output: `target/x86_64-pc-windows-msvc/release/bundle/nsis/Quota Tray_0.1.0_x64-
 
 GitHub Actions also builds this installer on every change under `quota-tray/` (workflow **Quota Tray Windows installer**; download the `quota-tray-windows-setup` artifact).
 
+### Chrome extension
+
+The desktop tray cannot run inside Chrome. There is a Manifest V3 popup that reuses the same panel UI:
+
+```bash
+cd quota-tray/ui
+npm ci
+npm run build:extension
+```
+
+Then `chrome://extensions` → Developer mode → **Load unpacked** → `quota-tray/ui/dist-extension`.
+
+Details: [`extension/README.md`](extension/README.md). Cursor can use your `cursor.com` browser login; Claude and Copilot need a credentials file import (Chrome cannot read Keychain or `state.vscdb`).
+
 ## Workspace layout
 
 ```
@@ -118,6 +132,7 @@ quota-tray/
   crates/provider-copilot/
   src-tauri/
   ui/
+  extension/
 ```
 
 ## License
