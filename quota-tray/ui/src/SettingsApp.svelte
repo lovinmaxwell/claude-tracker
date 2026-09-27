@@ -1,7 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
   import { clampPollInterval } from "./lib/settings_validate";
+  import {
+    fetchConfig,
+    saveConfig as persistConfig,
+    fetchConnections,
+    importSecret,
+    clearSecret,
+    type ConnectionKind,
+    type ConnectionMap,
+  } from "./lib/config_api";
+  import { isChromeExtension } from "./lib/platform";
   import {
     applyThemeMode,
     initTheme,
@@ -31,15 +40,35 @@
   let palette = $state<PaletteId>("studio");
   let saved = $state(false);
   let error = $state<string | null>(null);
+  let chromeExt = $state(false);
+  let connections = $state<ConnectionMap>({
+    Claude: "missing",
+    Cursor: "missing",
+    Copilot: "missing",
+  });
+  let importBusy = $state<string | null>(null);
 
-  const allProviders: { id: ProviderId; blurb: string }[] = [
-    { id: "Claude", blurb: "Keychain / ~/.claude credentials → Anthropic usage" },
-    { id: "Cursor", blurb: "Local state.vscdb token → Cursor period usage" },
-    { id: "Copilot", blurb: "apps.json / hosts.json → GitHub Copilot user API" },
-  ];
+  const desktopBlurbs: Record<Exclude<ProviderId, "OpenAI">, string> = {
+    Claude: "Keychain / ~/.claude credentials → Anthropic usage",
+    Cursor: "Local state.vscdb token → Cursor period usage",
+    Copilot: "apps.json / hosts.json → GitHub Copilot user API",
+  };
+  const chromeBlurbs: Record<Exclude<ProviderId, "OpenAI">, string> = {
+    Claude: "Import ~/.claude/.credentials.json (browser cannot read Keychain)",
+    Cursor: "Uses your cursor.com login cookie, or paste a JWT",
+    Copilot: "Import github-copilot apps.json / hosts.json",
+  };
+
+  const providerIds: Exclude<ProviderId, "OpenAI">[] = ["Claude", "Cursor", "Copilot"];
+  const providerRows = $derived(
+    providerIds.map((id) => ({
+      id,
+      blurb: chromeExt ? chromeBlurbs[id] : desktopBlurbs[id],
+    }))
+  );
 
   const themeOptions: { id: ThemeMode; label: string; hint: string }[] = [
-    { id: "system", label: "System", hint: "Match macOS" },
+    { id: "system", label: "System", hint: "Match OS" },
     { id: "light", label: "Light", hint: "Cream" },
     { id: "dark", label: "Dark", hint: "Charcoal" },
   ];
@@ -47,8 +76,12 @@
   onMount(async () => {
     theme = initTheme();
     palette = initPalette();
+    chromeExt = isChromeExtension();
     try {
-      config = await invoke<AppConfig>("get_config");
+      config = await fetchConfig();
+      if (chromeExt) {
+        connections = await fetchConnections();
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -79,11 +112,86 @@
         ...config,
         poll_interval_secs: clampPollInterval(config.poll_interval_secs),
       };
-      config = await invoke<AppConfig>("set_config", { config: next });
+      config = await persistConfig(next);
       saved = true;
       error = null;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  function connectionLabel(kind: ConnectionKind): string {
+    if (kind === "browser") {
+      return "Signed in on cursor.com";
+    }
+    if (kind === "imported") {
+      return "Token imported";
+    }
+    return "Not connected";
+  }
+
+  async function onImportFile(provider: Exclude<ProviderId, "OpenAI">, e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) {
+      return;
+    }
+    importBusy = provider;
+    try {
+      const text = await file.text();
+      await importSecret(provider, text);
+      connections = await fetchConnections();
+      error = null;
+      saved = true;
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      importBusy = null;
+    }
+  }
+
+  async function onPasteToken(provider: Exclude<ProviderId, "OpenAI">) {
+    const text = window.prompt(`Paste ${provider} token or credentials JSON`);
+    if (!text) {
+      return;
+    }
+    importBusy = provider;
+    try {
+      await importSecret(provider, text);
+      connections = await fetchConnections();
+      error = null;
+      saved = true;
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      importBusy = null;
+    }
+  }
+
+  async function onClearToken(provider: Exclude<ProviderId, "OpenAI">) {
+    importBusy = provider;
+    try {
+      await clearSecret(provider);
+      connections = await fetchConnections();
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      importBusy = null;
+    }
+  }
+
+  async function onRecheckCursor() {
+    importBusy = "Cursor";
+    try {
+      connections = await fetchConnections();
+      await persistConfig(config);
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      importBusy = null;
     }
   }
 
@@ -99,7 +207,11 @@
     <a class="back" href="index.html" aria-label="Back to panel">←</a>
     <div>
       <h1>Settings</h1>
-      <p class="blurb">Credentials stay on this Mac. We only call vendor APIs.</p>
+      <p class="blurb">
+        {chromeExt
+          ? "Credentials stay in this Chrome profile. We only call vendor APIs."
+          : "Credentials stay on this Mac. We only call vendor APIs."}
+      </p>
     </div>
   </header>
 
@@ -151,7 +263,7 @@
 
   <section class="card">
     <h2>Providers</h2>
-    {#each allProviders as p}
+    {#each providerRows as p}
       <label class="toggle-row">
         <div class="copy">
           <span class="title">{p.id}</span>
@@ -166,6 +278,51 @@
       </label>
     {/each}
   </section>
+
+  {#if chromeExt}
+    <section class="card">
+      <h2>Connect in this browser</h2>
+      <p class="desc connect-lead">
+        Chrome cannot read Keychain or Cursor’s state.vscdb. Cursor can use your
+        cursor.com session. Claude and Copilot need a local credentials file import.
+      </p>
+      {#each providerRows as p}
+        <div class="connect-row">
+          <div class="copy">
+            <span class="title">{p.id}</span>
+            <span class="desc">{connectionLabel(connections[p.id])}</span>
+          </div>
+          <div class="connect-actions">
+            {#if p.id === "Cursor"}
+              <button type="button" class="btn-action" onclick={onRecheckCursor}>
+                Recheck login
+              </button>
+            {/if}
+            <label class="btn-action file-btn">
+              Import file
+              <input
+                type="file"
+                accept=".json,application/json,text/plain"
+                hidden
+                onchange={(e) => onImportFile(p.id, e)}
+              />
+            </label>
+            <button type="button" class="btn-action" onclick={() => onPasteToken(p.id)}>
+              Paste
+            </button>
+            {#if connections[p.id] === "imported"}
+              <button type="button" class="btn-action" onclick={() => onClearToken(p.id)}>
+                Clear
+              </button>
+            {/if}
+          </div>
+        </div>
+      {/each}
+      {#if importBusy}
+        <p class="desc">Updating {importBusy}…</p>
+      {/if}
+    </section>
+  {/if}
 
   <section class="card">
     <div class="card-top">
@@ -433,5 +590,44 @@
   .err {
     font-size: 0.82rem;
     color: var(--danger);
+  }
+
+  .connect-lead {
+    margin: 0 0 0.75rem;
+    display: block;
+  }
+
+  .connect-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0;
+    border-top: 0.5px solid var(--popover-stroke);
+    flex-wrap: wrap;
+  }
+
+  .connect-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .btn-action {
+    appearance: none;
+    background: transparent;
+    border: 0.5px solid var(--popover-stroke);
+    border-radius: 5px;
+    color: var(--ink);
+    padding: 0.28rem 0.55rem;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 550;
+    cursor: pointer;
+  }
+
+  .file-btn {
+    display: inline-flex;
+    align-items: center;
   }
 </style>
