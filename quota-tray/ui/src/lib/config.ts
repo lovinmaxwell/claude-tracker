@@ -19,7 +19,7 @@ export function defaultConfig(): AppConfig {
 }
 
 export function sanitizeConfig(config: AppConfig): AppConfig {
-  const order: ProviderId[] = ["Claude", "Cursor", "Copilot", "OpenAI"];
+  const order: ProviderId[] = ["Claude", "Cursor", "Copilot", "Antigravity", "OpenAI"];
   const enabled = order.filter((id) => config.enabled.includes(id));
   return {
     poll_interval_secs: clampPollInterval(config.poll_interval_secs),

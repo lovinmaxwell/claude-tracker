@@ -61,4 +61,7 @@ export async function clearSecret(provider: ProviderId): Promise<void> {
 
 export type ConnectionKind = "missing" | "imported" | "browser";
 
-export type ConnectionMap = Record<"Claude" | "Cursor" | "Copilot", ConnectionKind>;
+export type ConnectionMap = Record<
+  "Claude" | "Cursor" | "Copilot" | "Antigravity",
+  ConnectionKind
+>;

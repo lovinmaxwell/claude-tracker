@@ -87,6 +87,7 @@ export class ExtensionPoller {
 
 export function configEnabled(config: AppConfig): ProviderId[] {
   return config.enabled.filter(
-    (id): id is ProviderId => id === "Claude" || id === "Cursor" || id === "Copilot"
+    (id): id is ProviderId =>
+      id === "Claude" || id === "Cursor" || id === "Copilot" || id === "Antigravity"
   );
 }

@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   extractCursorTokenFromCookie,
+  parseAntigravitySecret,
   parseClaudeSecret,
   parseCopilotSecret,
 } from "../extension/credentials";
+import {
+  parseModelsFallback,
+  parseQuotaSummary,
+} from "../extension/providers/antigravity";
 import {
   parseClaudeUsageBody,
   headlineFromWindows,
@@ -153,6 +158,162 @@ describe("copilot parse", () => {
       },
     });
     expect(snap.headline_percent).toBe(75);
+  });
+});
+
+describe("antigravity credentials", () => {
+  it("parses full oauth JSON (shape a)", () => {
+    const out = JSON.parse(
+      parseAntigravitySecret(
+        '{"access_token":"ya29.test","refresh_token":"1//test-refresh","expiry_date":9999999999999}'
+      )
+    );
+    expect(out.refresh_token).toBe("1//test-refresh");
+    expect(out.access_token).toBe("ya29.test");
+    expect(out.expiry_date).toBe(9999999999999);
+  });
+
+  it("parses nested keychain/jetski shape (shape b)", () => {
+    const out = JSON.parse(
+      parseAntigravitySecret(
+        JSON.stringify({
+          auth_method: "oauth",
+          token: { access_token: "ya29.nested", refresh_token: "1//nested-refresh" },
+        })
+      )
+    );
+    expect(out.refresh_token).toBe("1//nested-refresh");
+    expect(out.access_token).toBe("ya29.nested");
+  });
+
+  it("parses gemini oauth_creds.json flat shape (shape c)", () => {
+    const out = JSON.parse(
+      parseAntigravitySecret(
+        JSON.stringify({
+          access_token: "ya29.gemini",
+          refresh_token: "1//gemini-refresh",
+          scope: "openid",
+          token_type: "Bearer",
+          expiry: "2099-01-01T00:00:00.000Z",
+        })
+      )
+    );
+    expect(out.refresh_token).toBe("1//gemini-refresh");
+    expect(out.token_type).toBe("Bearer");
+    expect(out.expiry).toBe("2099-01-01T00:00:00.000Z");
+  });
+
+  it("parses a raw refresh token string (shape d)", () => {
+    const out = JSON.parse(parseAntigravitySecret("1//raw-refresh-token"));
+    expect(out.refresh_token).toBe("1//raw-refresh-token");
+  });
+
+  it("rejects JSON with no refresh_token anywhere", () => {
+    expect(() => parseAntigravitySecret("{}")).toThrow(/no refresh_token/);
+  });
+
+  it("rejects empty input", () => {
+    expect(() => parseAntigravitySecret("   ")).toThrow(/empty Antigravity/);
+  });
+});
+
+describe("antigravity parseQuotaSummary", () => {
+  it("converts remainingFraction to used percent and builds windows", () => {
+    const { windows, headline } = parseQuotaSummary({
+      groups: [
+        {
+          displayName: "Gemini 3 Pro",
+          buckets: [
+            {
+              bucketId: "gemini-3-pro-daily",
+              displayName: "Daily",
+              remainingFraction: 0.75,
+              resetTime: "2026-09-28T00:00:00Z",
+            },
+          ],
+        },
+      ],
+    });
+    expect(windows).toHaveLength(1);
+    expect(windows[0].id).toBe("gemini-3-pro-daily");
+    expect(windows[0].kind).toEqual({ Percent: { used: 25 } });
+    expect(windows[0].resets_at).toBe("2026-09-28T00:00:00Z");
+    expect(headline).toBe(25);
+  });
+
+  it("skips disabled buckets", () => {
+    const { windows, headline } = parseQuotaSummary({
+      groups: [
+        {
+          displayName: "Gemini",
+          buckets: [
+            { bucketId: "a", displayName: "A", remainingFraction: 0.5, disabled: true },
+            { bucketId: "b", displayName: "B", remainingFraction: 0.9 },
+          ],
+        },
+      ],
+    });
+    expect(windows).toHaveLength(1);
+    expect(windows[0].id).toBe("b");
+    expect(headline).toBeCloseTo(10);
+  });
+
+  it("headline is the max used percent across non-disabled buckets", () => {
+    const { headline } = parseQuotaSummary({
+      groups: [
+        {
+          displayName: "Gemini",
+          buckets: [
+            { bucketId: "a", displayName: "A", remainingFraction: 0.9 },
+            { bucketId: "b", displayName: "B", remainingFraction: 0.2 },
+          ],
+        },
+      ],
+    });
+    expect(headline).toBe(80);
+  });
+
+  it("throws when no usable buckets (no invented numbers)", () => {
+    expect(() =>
+      parseQuotaSummary({
+        groups: [
+          {
+            displayName: "Gemini",
+            buckets: [
+              { bucketId: "a", displayName: "A", disabled: true, remainingFraction: 0.5 },
+              { bucketId: "b", displayName: "B" },
+            ],
+          },
+        ],
+      })
+    ).toThrow(/no usable quota buckets/);
+  });
+
+  it("throws on missing groups", () => {
+    expect(() => parseQuotaSummary({})).toThrow(/missing groups/);
+  });
+});
+
+describe("antigravity parseModelsFallback", () => {
+  it("skips internal and empty-displayName models, aggregates worst remaining", () => {
+    const { windows, headline } = parseModelsFallback({
+      models: {
+        m1: { displayName: "Gemini 3 Pro", isInternal: true, remainingFraction: 0.1 },
+        m2: { displayName: "", remainingFraction: 0.1 },
+        m3: { displayName: "Gemini 3 Pro", remainingFraction: 0.6 },
+        m4: { displayName: "Gemini 3 Pro", remainingFraction: 0.3 },
+      },
+    });
+    expect(windows).toHaveLength(1);
+    expect(windows[0].label).toBe("Gemini 3 Pro");
+    expect(windows[0].kind).toEqual({ Percent: { used: 70 } });
+    expect(headline).toBe(70);
+  });
+
+  it("throws when no usable model quota", () => {
+    expect(() =>
+      parseModelsFallback({ models: { m1: { isInternal: true, remainingFraction: 0.5 } } })
+    ).toThrow(/no usable model quota/);
   });
 });
 

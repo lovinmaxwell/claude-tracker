@@ -23,7 +23,7 @@
     type PaletteId,
   } from "./lib/theme";
 
-  type ProviderId = "Claude" | "Cursor" | "Copilot" | "OpenAI";
+  type ProviderId = "Claude" | "Cursor" | "Copilot" | "Antigravity" | "OpenAI";
   type ClaudeHeadline = "FiveHour" | "SevenDay" | "Highest";
 
   interface AppConfig {
@@ -46,6 +46,7 @@
     Claude: "missing",
     Cursor: "missing",
     Copilot: "missing",
+    Antigravity: "missing",
   });
   let importBusy = $state<string | null>(null);
 
@@ -53,14 +54,21 @@
     Claude: "Keychain / ~/.claude credentials → Anthropic usage",
     Cursor: "Local state.vscdb token → Cursor period usage",
     Copilot: "apps.json / hosts.json → GitHub Copilot user API",
+    Antigravity: "Not available in desktop app yet — use Chrome extension",
   };
   const chromeBlurbs: Record<Exclude<ProviderId, "OpenAI">, string> = {
     Claude: "Uses your claude.ai login session, or import credentials",
     Cursor: "Uses your cursor.com login cookie, or paste a JWT",
     Copilot: "Import github-copilot apps.json / hosts.json",
+    Antigravity: "Chrome extension: import OAuth refresh token",
   };
 
-  const providerIds: Exclude<ProviderId, "OpenAI">[] = ["Claude", "Cursor", "Copilot"];
+  const providerIds: Exclude<ProviderId, "OpenAI">[] = [
+    "Claude",
+    "Cursor",
+    "Copilot",
+    "Antigravity",
+  ];
   const providerRows = $derived(
     providerIds.map((id) => ({
       id,
@@ -125,6 +133,7 @@
     Claude: "Signed in on claude.ai",
     Cursor: "Signed in on cursor.com",
     Copilot: "Signed in on github.com",
+    Antigravity: "Signed in",
   };
 
   function connectionLabel(provider: Exclude<ProviderId, "OpenAI">, kind: ConnectionKind): string {
@@ -313,8 +322,8 @@
       <h2>Connect in this browser</h2>
       <p class="desc connect-lead">
         Chrome cannot read Keychain or Cursor’s state.vscdb. Claude and Cursor can use
-        your existing browser session on claude.ai / cursor.com. Copilot needs a local
-        credentials file import.
+        your existing browser session on claude.ai / cursor.com. Copilot and Antigravity
+        need a local credentials file import.
       </p>
       {#each providerRows as p}
         <div class="connect-row">
