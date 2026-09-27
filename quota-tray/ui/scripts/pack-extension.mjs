@@ -19,7 +19,7 @@ const manifest = {
   name: "Quota Tray",
   version: "0.1.0",
   description:
-    "Local AI coding quota for Claude Code, Cursor, and GitHub Copilot. No Quota Tray servers.",
+    "Local AI coding quota for Claude Code, Cursor, GitHub Copilot, and Antigravity. No Quota Tray servers.",
   action: {
     default_title: "Quota Tray",
     default_popup: "index.html",
@@ -45,6 +45,9 @@ const manifest = {
     "https://cursor.com/*",
     "https://www.cursor.com/*",
     "https://api.github.com/*",
+    "https://oauth2.googleapis.com/*",
+    "https://daily-cloudcode-pa.googleapis.com/*",
+    "https://cloudcode-pa.googleapis.com/*",
   ],
 };
 

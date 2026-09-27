@@ -1,6 +1,6 @@
 # Quota Tray
 
-Local macOS-first system tray app that shows AI coding quota for **Claude Code**, **Cursor**, and **GitHub Copilot** in one place.
+Local macOS-first system tray app that shows AI coding quota for **Claude Code**, **Cursor**, **GitHub Copilot**, and (Chrome extension only) **Antigravity** in one place.
 
 Stack: **Tauri 2 + Rust + Svelte**. No Quota Tray servers. No telemetry. No accounts with us.
 
@@ -33,6 +33,7 @@ These endpoints are **not** public SLA APIs. Vendors can change or remove them. 
 | Claude Code | `GET https://api.anthropic.com/api/oauth/usage` | Bearer OAuth + `anthropic-beta: oauth-2025-04-20` |
 | Cursor | `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage` | Bearer JWT from `state.vscdb` |
 | Copilot | `GET https://api.github.com/copilot_internal/user` | Bearer `gho_*` from Copilot `apps.json` / `hosts.json` |
+| Antigravity (Chrome ext only) | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` (falls back to `cloudcode-pa.googleapis.com`, then `:fetchAvailableModels`) | Bearer Google OAuth access token, refreshed from an imported refresh token via `https://oauth2.googleapis.com/token` |
 
 Using Quota Tray means you accept that these are the same *class* of client calls vendor apps make, with **no warranty**, and account/ToS risk is yours.
 
@@ -132,7 +133,7 @@ npm run build:extension
 
 Then `chrome://extensions` → Developer mode → **Load unpacked** → `quota-tray/ui/dist-extension`.
 
-Details: [`extension/README.md`](extension/README.md). Claude and Cursor can use your existing `claude.ai` / `cursor.com` browser login; Copilot needs a credentials file import (Chrome cannot read Keychain or `state.vscdb`).
+Details: [`extension/README.md`](extension/README.md). Claude and Cursor can use your existing `claude.ai` / `cursor.com` browser login; Copilot and Antigravity need a credentials file import (Chrome cannot read Keychain or `state.vscdb`).
 
 ## Workspace layout
 

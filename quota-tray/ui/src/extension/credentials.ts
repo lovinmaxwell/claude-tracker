@@ -69,6 +69,48 @@ export function extractCursorTokenFromCookie(value: string): string | null {
   return jwtish.length > 0 ? jwtish : null;
 }
 
+/**
+ * Accepts:
+ *  a) full oauth JSON: {access_token, refresh_token, expiry?/expiry_date?, token_type?}
+ *  b) nested keychain/jetski shape: {token: {access_token, refresh_token, ...}, auth_method?}
+ *  c) gemini oauth_creds.json shape (flat, with refresh_token)
+ *  d) raw refresh_token string
+ * Returns a JSON string containing at least refresh_token, for storage and later refresh.
+ */
+export function parseAntigravitySecret(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error("empty Antigravity credentials");
+  }
+  if (!trimmed.startsWith("{")) {
+    return JSON.stringify({ refresh_token: trimmed });
+  }
+  const root = JSON.parse(trimmed) as Record<string, unknown>;
+  const nested =
+    root.token && typeof root.token === "object" && !Array.isArray(root.token)
+      ? (root.token as Record<string, unknown>)
+      : null;
+  const src = nested ?? root;
+  const refreshToken = src.refresh_token;
+  if (typeof refreshToken !== "string" || !refreshToken) {
+    throw new Error("no refresh_token in Antigravity credentials");
+  }
+  const out: Record<string, unknown> = { refresh_token: refreshToken };
+  if (typeof src.access_token === "string") {
+    out.access_token = src.access_token;
+  }
+  if (typeof src.expiry === "string") {
+    out.expiry = src.expiry;
+  }
+  if (typeof src.expiry_date === "number") {
+    out.expiry_date = src.expiry_date;
+  }
+  if (typeof src.token_type === "string") {
+    out.token_type = src.token_type;
+  }
+  return JSON.stringify(out);
+}
+
 export function parseImportedSecret(provider: ProviderId, raw: string): string {
   switch (provider) {
     case "Claude":
@@ -77,6 +119,8 @@ export function parseImportedSecret(provider: ProviderId, raw: string): string {
       return parseCursorSecret(raw);
     case "Copilot":
       return parseCopilotSecret(raw);
+    case "Antigravity":
+      return parseAntigravitySecret(raw);
     default:
       throw new Error(`unsupported provider ${provider}`);
   }

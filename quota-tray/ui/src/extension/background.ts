@@ -4,6 +4,7 @@ import {
   parseImportedSecret,
 } from "./credentials";
 import { configEnabled, ExtensionPoller } from "./poller";
+import { fetchAntigravityUsage } from "./providers/antigravity";
 import { fetchClaudeUsage, fetchClaudeUsageBySession } from "./providers/claude";
 import { fetchCopilotUsage } from "./providers/copilot";
 import { fetchCursorUsage } from "./providers/cursor";
@@ -151,6 +152,9 @@ async function fetchProvider(
   if (id === "Claude") {
     return fetchClaudeProvider(config);
   }
+  if (id === "Antigravity") {
+    return fetchAntigravityProvider();
+  }
   const token = await resolveToken(id);
   if (!token) {
     throw new Error(missingTokenHint(id));
@@ -175,6 +179,19 @@ async function fetchClaudeProvider(config: AppConfig): Promise<ProviderSnapshot>
     throw new Error(missingTokenHint("Claude"));
   }
   return fetchClaudeUsageBySession(config.claude_headline);
+}
+
+async function fetchAntigravityProvider(): Promise<ProviderSnapshot> {
+  const secrets = await loadSecrets();
+  const secretJson = secrets.Antigravity;
+  if (!secretJson) {
+    throw new Error(missingTokenHint("Antigravity"));
+  }
+  const { snapshot, secretJson: updated } = await fetchAntigravityUsage(secretJson);
+  if (updated !== secretJson) {
+    await saveSecret("Antigravity", updated);
+  }
+  return snapshot;
 }
 
 async function resolveToken(id: ProviderId): Promise<string | null> {
@@ -230,6 +247,7 @@ async function readConnections(): Promise<ConnectionMap> {
     Claude: claude,
     Cursor: cursor,
     Copilot: secrets.Copilot ? "imported" : "missing",
+    Antigravity: secrets.Antigravity ? "imported" : "missing",
   };
 }
 
@@ -239,6 +257,9 @@ function missingTokenHint(id: ProviderId): string {
   }
   if (id === "Claude") {
     return "Sign in at claude.ai in this browser, or import credentials in Settings";
+  }
+  if (id === "Antigravity") {
+    return "Import Antigravity OAuth credentials (refresh token) in Settings — Chrome cannot read Keychain";
   }
   return "Import github-copilot apps.json in Settings";
 }

@@ -32,11 +32,14 @@ export async function saveConfig(config: AppConfig): Promise<AppConfig> {
 }
 
 export type ConnectionKind = "missing" | "imported" | "browser";
-export type ConnectionMap = Record<"Claude" | "Cursor" | "Copilot", ConnectionKind>;
+export type ConnectionMap = Record<
+  "Claude" | "Cursor" | "Copilot" | "Antigravity",
+  ConnectionKind
+>;
 
 export async function fetchConnections(): Promise<ConnectionMap> {
   if (!isChromeExtension()) {
-    return { Claude: "missing", Cursor: "missing", Copilot: "missing" };
+    return { Claude: "missing", Cursor: "missing", Copilot: "missing", Antigravity: "missing" };
   }
   const res = (await chrome.runtime.sendMessage({
     type: "get_connections",
@@ -48,7 +51,7 @@ export async function fetchConnections(): Promise<ConnectionMap> {
 }
 
 export async function importSecret(
-  provider: "Claude" | "Cursor" | "Copilot",
+  provider: "Claude" | "Cursor" | "Copilot" | "Antigravity",
   text: string
 ): Promise<void> {
   const res = (await chrome.runtime.sendMessage({
@@ -62,7 +65,7 @@ export async function importSecret(
 }
 
 export async function clearSecret(
-  provider: "Claude" | "Cursor" | "Copilot"
+  provider: "Claude" | "Cursor" | "Copilot" | "Antigravity"
 ): Promise<void> {
   const res = (await chrome.runtime.sendMessage({
     type: "clear_secret",

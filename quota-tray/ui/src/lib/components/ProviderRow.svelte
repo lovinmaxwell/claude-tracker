@@ -28,7 +28,9 @@
         ? "Cursor"
         : snap.provider === "Copilot"
           ? "Copilot"
-          : "OpenAI"
+          : snap.provider === "Antigravity"
+            ? "Antigravity"
+            : "OpenAI"
   );
   const vendor = $derived(
     snap.provider === "Claude"
@@ -37,7 +39,9 @@
         ? "Anysphere"
         : snap.provider === "Copilot"
           ? "GitHub"
-          : "OpenAI"
+          : snap.provider === "Antigravity"
+            ? "Google"
+            : "OpenAI"
   );
   const providerClass = $derived(
     snap.provider === "Claude"

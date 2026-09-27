@@ -1,4 +1,4 @@
-export type ProviderId = "Claude" | "Cursor" | "Copilot" | "OpenAI";
+export type ProviderId = "Claude" | "Cursor" | "Copilot" | "Antigravity" | "OpenAI";
 
 export type WindowKind =
   | { Percent: { used: number | null } }
