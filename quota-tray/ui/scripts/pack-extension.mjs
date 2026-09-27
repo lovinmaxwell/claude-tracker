@@ -40,6 +40,7 @@ const manifest = {
   permissions: ["storage", "alarms", "cookies"],
   host_permissions: [
     "https://api.anthropic.com/*",
+    "https://claude.ai/*",
     "https://api2.cursor.sh/*",
     "https://cursor.com/*",
     "https://www.cursor.com/*",

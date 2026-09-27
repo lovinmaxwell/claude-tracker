@@ -4,7 +4,11 @@ import {
   parseClaudeSecret,
   parseCopilotSecret,
 } from "../extension/credentials";
-import { parseClaudeUsageBody, headlineFromWindows } from "../extension/providers/claude";
+import {
+  parseClaudeUsageBody,
+  headlineFromWindows,
+  pickClaudeOrgUuid,
+} from "../extension/providers/claude";
 import { parseCopilotUser, copilotHeadlinePercent } from "../extension/providers/copilot";
 import { parseCursorUsageBody, cursorHeadlinePercent } from "../extension/providers/cursor";
 import { ExtensionPoller } from "../extension/poller";
@@ -98,6 +102,22 @@ describe("claude usage parse", () => {
         "FiveHour"
       )
     ).toBe(12);
+  });
+});
+
+describe("pickClaudeOrgUuid", () => {
+  it("picks first org uuid", () => {
+    expect(
+      pickClaudeOrgUuid([{ uuid: "org-1", name: "Acme" }, { uuid: "org-2" }])
+    ).toBe("org-1");
+  });
+
+  it("is null when no orgs", () => {
+    expect(pickClaudeOrgUuid([])).toBeNull();
+  });
+
+  it("is null when body is not an array", () => {
+    expect(pickClaudeOrgUuid({})).toBeNull();
   });
 });
 

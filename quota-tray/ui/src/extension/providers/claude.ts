@@ -4,6 +4,8 @@ import type { ProviderSnapshot, UsageWindow } from "../../lib/types";
 export const CLAUDE_USAGE_PATH = "/api/oauth/usage";
 export const CLAUDE_API_BASE = "https://api.anthropic.com";
 export const ANTHROPIC_BETA_OAUTH = "oauth-2025-04-20";
+export const CLAUDE_WEB_BASE = "https://claude.ai";
+export const CLAUDE_ORGS_PATH = "/api/organizations";
 
 export function parseClaudeUsageBody(
   body: unknown,
@@ -43,6 +45,51 @@ export async function fetchClaudeUsage(
       "anthropic-beta": ANTHROPIC_BETA_OAUTH,
     },
   });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`Claude HTTP ${res.status}`);
+  }
+  return parseClaudeUsageBody(JSON.parse(text) as unknown, headline);
+}
+
+/** Picks the org uuid a signed-in claude.ai session's usage lives under. */
+export function pickClaudeOrgUuid(body: unknown): string | null {
+  if (!Array.isArray(body)) {
+    return null;
+  }
+  for (const entry of body) {
+    if (entry && typeof entry === "object" && typeof (entry as { uuid?: unknown }).uuid === "string") {
+      return (entry as { uuid: string }).uuid;
+    }
+  }
+  return null;
+}
+
+export async function fetchClaudeOrgUuid(
+  baseUrl = CLAUDE_WEB_BASE,
+  fetcher: typeof fetch = fetch
+): Promise<string | null> {
+  const url = `${baseUrl.replace(/\/$/, "")}${CLAUDE_ORGS_PATH}`;
+  const res = await fetcher(url, { credentials: "include" });
+  if (!res.ok) {
+    return null;
+  }
+  const body = (await res.json()) as unknown;
+  return pickClaudeOrgUuid(body);
+}
+
+/** Mirrors the OAuth usage shape (five_hour/seven_day) that claude.ai's own web app reads via its session cookie. */
+export async function fetchClaudeUsageBySession(
+  headline: ClaudeHeadline,
+  baseUrl = CLAUDE_WEB_BASE,
+  fetcher: typeof fetch = fetch
+): Promise<ProviderSnapshot> {
+  const orgUuid = await fetchClaudeOrgUuid(baseUrl, fetcher);
+  if (!orgUuid) {
+    throw new Error("Claude: no organization found for this session");
+  }
+  const url = `${baseUrl.replace(/\/$/, "")}${CLAUDE_ORGS_PATH}/${orgUuid}/usage`;
+  const res = await fetcher(url, { credentials: "include" });
   const text = await res.text();
   if (!res.ok) {
     throw new Error(`Claude HTTP ${res.status}`);

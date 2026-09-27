@@ -4,7 +4,7 @@ import {
   parseImportedSecret,
 } from "./credentials";
 import { configEnabled, ExtensionPoller } from "./poller";
-import { fetchClaudeUsage } from "./providers/claude";
+import { fetchClaudeUsage, fetchClaudeUsageBySession } from "./providers/claude";
 import { fetchCopilotUsage } from "./providers/copilot";
 import { fetchCursorUsage } from "./providers/cursor";
 import { updateActionBadge } from "./badge";
@@ -33,7 +33,8 @@ type Incoming =
   | { type: "refresh_now" }
   | { type: "get_connections" }
   | { type: "import_secret"; provider: ProviderId; text: string }
-  | { type: "clear_secret"; provider: ProviderId };
+  | { type: "clear_secret"; provider: ProviderId }
+  | { type: "open_claude_login" };
 
 chrome.runtime.onInstalled.addListener(() => {
   void bootstrapAndTick();
@@ -86,6 +87,9 @@ async function handle(message: Incoming): Promise<unknown> {
     case "clear_secret":
       await clearSecret(message.provider);
       await tick();
+      return { ok: true };
+    case "open_claude_login":
+      await chrome.tabs.create({ url: "https://claude.ai/login" });
       return { ok: true };
     default:
       throw new Error("unknown message");
@@ -144,12 +148,12 @@ async function fetchProvider(
   id: ProviderId,
   config: AppConfig
 ): Promise<ProviderSnapshot> {
+  if (id === "Claude") {
+    return fetchClaudeProvider(config);
+  }
   const token = await resolveToken(id);
   if (!token) {
     throw new Error(missingTokenHint(id));
-  }
-  if (id === "Claude") {
-    return fetchClaudeUsage(token, config.claude_headline);
   }
   if (id === "Cursor") {
     return fetchCursorUsage(token);
@@ -158,6 +162,19 @@ async function fetchProvider(
     return fetchCopilotUsage(token);
   }
   throw new Error(`unsupported provider ${id}`);
+}
+
+async function fetchClaudeProvider(config: AppConfig): Promise<ProviderSnapshot> {
+  const secrets = await loadSecrets();
+  const imported = secrets.Claude?.trim();
+  if (imported) {
+    return fetchClaudeUsage(imported, config.claude_headline);
+  }
+  const signedIn = await readClaudeSessionCookie();
+  if (!signedIn) {
+    throw new Error(missingTokenHint("Claude"));
+  }
+  return fetchClaudeUsageBySession(config.claude_headline);
 }
 
 async function resolveToken(id: ProviderId): Promise<string | null> {
@@ -170,6 +187,14 @@ async function resolveToken(id: ProviderId): Promise<string | null> {
     return readCursorCookieToken();
   }
   return null;
+}
+
+async function readClaudeSessionCookie(): Promise<boolean> {
+  const cookie = await chrome.cookies.get({
+    url: "https://claude.ai",
+    name: "sessionKey",
+  });
+  return !!cookie?.value;
 }
 
 async function readCursorCookieToken(): Promise<string | null> {
@@ -195,8 +220,14 @@ async function readConnections(): Promise<ConnectionMap> {
     : cookie
       ? "browser"
       : "missing";
+  const claudeSignedIn = await readClaudeSessionCookie();
+  const claude: ConnectionKind = secrets.Claude
+    ? "imported"
+    : claudeSignedIn
+      ? "browser"
+      : "missing";
   return {
-    Claude: secrets.Claude ? "imported" : "missing",
+    Claude: claude,
     Cursor: cursor,
     Copilot: secrets.Copilot ? "imported" : "missing",
   };
@@ -207,7 +238,7 @@ function missingTokenHint(id: ProviderId): string {
     return "Sign in at cursor.com in this browser, or import a token in Settings";
   }
   if (id === "Claude") {
-    return "Import ~/.claude/.credentials.json in Settings";
+    return "Sign in at claude.ai in this browser, or import credentials in Settings";
   }
   return "Import github-copilot apps.json in Settings";
 }
