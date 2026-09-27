@@ -33,7 +33,7 @@ These endpoints are **not** public SLA APIs. Vendors can change or remove them. 
 | Claude Code | `GET https://api.anthropic.com/api/oauth/usage` | Bearer OAuth + `anthropic-beta: oauth-2025-04-20` |
 | Cursor | `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage` | Bearer JWT from `state.vscdb` |
 | Copilot | `GET https://api.github.com/copilot_internal/user` | Bearer `gho_*` from Copilot `apps.json` / `hosts.json` |
-| Antigravity (Chrome ext only) | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` (falls back to `cloudcode-pa.googleapis.com`, then `:fetchAvailableModels`) | Bearer Google OAuth access token, refreshed from an imported refresh token via `https://oauth2.googleapis.com/token` |
+| Antigravity (Chrome ext only) | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` (falls back to `cloudcode-pa.googleapis.com`, then `:fetchAvailableModels`) | Bearer Google OAuth access token, refreshed from an **Antigravity-minted** refresh token (prefer `~/.gemini/jetski-standalone-oauth-token`; not gemini-cli `oauth_creds.json`) via `https://oauth2.googleapis.com/token` |
 
 Using Quota Tray means you accept that these are the same *class* of client calls vendor apps make, with **no warranty**, and account/ToS risk is yours.
 

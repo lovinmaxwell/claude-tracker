@@ -6,8 +6,11 @@ import {
   parseCopilotSecret,
 } from "../extension/credentials";
 import {
+  ANTIGRAVITY_CLIENT_ID,
+  GEMINI_CLI_CLIENT_ID,
   parseModelsFallback,
   parseQuotaSummary,
+  refreshAntigravityToken,
 } from "../extension/providers/antigravity";
 import {
   parseClaudeUsageBody,
@@ -214,6 +217,83 @@ describe("antigravity credentials", () => {
 
   it("rejects empty input", () => {
     expect(() => parseAntigravitySecret("   ")).toThrow(/empty Antigravity/);
+  });
+
+  it("preserves oauth_client and client_id hints", () => {
+    const out = JSON.parse(
+      parseAntigravitySecret(
+        JSON.stringify({
+          refresh_token: "1//hinted",
+          oauth_client: "antigravity",
+          client_id: ANTIGRAVITY_CLIENT_ID,
+        })
+      )
+    );
+    expect(out.oauth_client).toBe("antigravity");
+    expect(out.client_id).toBe(ANTIGRAVITY_CLIENT_ID);
+  });
+});
+
+describe("antigravity token refresh client mismatch", () => {
+  it("falls through to gemini-cli client when Antigravity returns unauthorized_client", async () => {
+    const calls: string[] = [];
+    const fetcher: typeof fetch = async (_url, init) => {
+      const body = String(init?.body ?? "");
+      const params = new URLSearchParams(body);
+      const clientId = params.get("client_id") ?? "";
+      calls.push(clientId);
+      if (clientId === ANTIGRAVITY_CLIENT_ID) {
+        return new Response(
+          JSON.stringify({ error: "unauthorized_client", error_description: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (clientId === GEMINI_CLI_CLIENT_ID) {
+        return new Response(
+          JSON.stringify({ access_token: "ya29.from-gemini", expires_in: 3600, token_type: "Bearer" }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(JSON.stringify({ error: "invalid_client" }), { status: 401 });
+    };
+    const result = await refreshAntigravityToken(
+      { refresh_token: "1//gemini-minted" },
+      fetcher
+    );
+    expect(result.access_token).toBe("ya29.from-gemini");
+    expect(result.oauth_client).toBe("gemini-cli");
+    expect(calls[0]).toBe(ANTIGRAVITY_CLIENT_ID);
+    expect(calls[1]).toBe(GEMINI_CLI_CLIENT_ID);
+  });
+
+  it("prefers stored oauth_client on refresh", async () => {
+    const calls: string[] = [];
+    const fetcher: typeof fetch = async (_url, init) => {
+      const params = new URLSearchParams(String(init?.body ?? ""));
+      const clientId = params.get("client_id") ?? "";
+      calls.push(clientId);
+      return new Response(
+        JSON.stringify({ access_token: "ya29.ok", expires_in: 3600 }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    };
+    const result = await refreshAntigravityToken(
+      { refresh_token: "1//x", oauth_client: "gemini-cli" },
+      fetcher
+    );
+    expect(result.oauth_client).toBe("gemini-cli");
+    expect(calls[0]).toBe(GEMINI_CLI_CLIENT_ID);
+  });
+
+  it("surfaces unauthorized_client with jetski hint when all clients fail", async () => {
+    const fetcher: typeof fetch = async () =>
+      new Response(
+        JSON.stringify({ error: "unauthorized_client", error_description: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    await expect(
+      refreshAntigravityToken({ refresh_token: "1//dead" }, fetcher)
+    ).rejects.toThrow(/jetski-standalone-oauth-token/);
   });
 });
 
