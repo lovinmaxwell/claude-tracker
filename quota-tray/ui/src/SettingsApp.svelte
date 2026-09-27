@@ -7,6 +7,7 @@
     fetchConnections,
     importSecret,
     clearSecret,
+    openClaudeLogin,
     type ConnectionKind,
     type ConnectionMap,
   } from "./lib/config_api";
@@ -54,7 +55,7 @@
     Copilot: "apps.json / hosts.json → GitHub Copilot user API",
   };
   const chromeBlurbs: Record<Exclude<ProviderId, "OpenAI">, string> = {
-    Claude: "Import ~/.claude/.credentials.json (browser cannot read Keychain)",
+    Claude: "Uses your claude.ai login session, or import credentials",
     Cursor: "Uses your cursor.com login cookie, or paste a JWT",
     Copilot: "Import github-copilot apps.json / hosts.json",
   };
@@ -120,9 +121,15 @@
     }
   }
 
-  function connectionLabel(kind: ConnectionKind): string {
+  const browserSignedInLabel: Record<Exclude<ProviderId, "OpenAI">, string> = {
+    Claude: "Signed in on claude.ai",
+    Cursor: "Signed in on cursor.com",
+    Copilot: "Signed in on github.com",
+  };
+
+  function connectionLabel(provider: Exclude<ProviderId, "OpenAI">, kind: ConnectionKind): string {
     if (kind === "browser") {
-      return "Signed in on cursor.com";
+      return browserSignedInLabel[provider];
     }
     if (kind === "imported") {
       return "Token imported";
@@ -184,6 +191,28 @@
 
   async function onRecheckCursor() {
     importBusy = "Cursor";
+    try {
+      connections = await fetchConnections();
+      await persistConfig(config);
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      importBusy = null;
+    }
+  }
+
+  async function onSignInClaude() {
+    try {
+      await openClaudeLogin();
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  async function onRecheckClaude() {
+    importBusy = "Claude";
     try {
       connections = await fetchConnections();
       await persistConfig(config);
@@ -283,19 +312,30 @@
     <section class="card">
       <h2>Connect in this browser</h2>
       <p class="desc connect-lead">
-        Chrome cannot read Keychain or Cursor’s state.vscdb. Cursor can use your
-        cursor.com session. Claude and Copilot need a local credentials file import.
+        Chrome cannot read Keychain or Cursor’s state.vscdb. Claude and Cursor can use
+        your existing browser session on claude.ai / cursor.com. Copilot needs a local
+        credentials file import.
       </p>
       {#each providerRows as p}
         <div class="connect-row">
           <div class="copy">
             <span class="title">{p.id}</span>
-            <span class="desc">{connectionLabel(connections[p.id])}</span>
+            <span class="desc">{connectionLabel(p.id, connections[p.id])}</span>
           </div>
           <div class="connect-actions">
             {#if p.id === "Cursor"}
               <button type="button" class="btn-action" onclick={onRecheckCursor}>
                 Recheck login
+              </button>
+            {/if}
+            {#if p.id === "Claude"}
+              {#if connections.Claude !== "browser"}
+                <button type="button" class="btn-action" onclick={onSignInClaude}>
+                  Sign in at claude.ai
+                </button>
+              {/if}
+              <button type="button" class="btn-action" onclick={onRecheckClaude}>
+                Recheck
               </button>
             {/if}
             <label class="btn-action file-btn">

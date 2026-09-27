@@ -4,8 +4,9 @@ Manifest V3 toolbar popup with the same cream/terracotta panel as the desktop tr
 
 Chrome **cannot** read macOS Keychain, Cursor `state.vscdb`, or Copilot `apps.json` from disk. This build:
 
+- **Claude:** uses your existing [claude.ai](https://claude.ai) login session in this Chrome profile (reads the `sessionKey` cookie, calls `claude.ai`'s own usage API with `credentials: "include"` — no token ever touches extension storage), or you can import `.credentials.json` / paste an OAuth token in Settings.
 - **Cursor:** reads the `WorkosCursorSessionToken` cookie if you are signed in at [cursor.com](https://cursor.com) in this Chrome profile (or you import a JWT).
-- **Claude / Copilot:** import `.credentials.json` / `apps.json` (or paste the token) in Settings. Tokens stay in `chrome.storage.local` for this profile only — never synced, never sent to a Quota Tray server.
+- **Copilot:** import `apps.json` (or paste the token) in Settings. Imported tokens stay in `chrome.storage.local` for this profile only — never synced, never sent to a Quota Tray server.
 
 ## Load unpacked
 
@@ -23,8 +24,8 @@ Do **not** attach the zip to Microsoft Teams — Defender often flags binaries a
 1. Pin the Quota Tray icon.
 2. Open **Settings** in the popup.
 3. Enable providers.
-4. For Cursor, sign in at cursor.com then **Recheck login**.
-5. For Claude, import `%USERPROFILE%\.claude\.credentials.json` (Windows) or `~/.claude/.credentials.json`.
+4. For Claude, sign in at claude.ai then **Recheck** (or import `%USERPROFILE%\.claude\.credentials.json` / `~/.claude/.credentials.json`).
+5. For Cursor, sign in at cursor.com then **Recheck login**.
 6. For Copilot, import `%LOCALAPPDATA%\github-copilot\apps.json`.
 
 The toolbar badge shows combined % used (worst healthy provider). Polling uses Chrome alarms (minimum 1 minute).

@@ -72,3 +72,12 @@ export async function clearSecret(
     throw new Error(res.error);
   }
 }
+
+export async function openClaudeLogin(): Promise<void> {
+  const res = (await chrome.runtime.sendMessage({
+    type: "open_claude_login",
+  })) as { error?: string };
+  if (res?.error) {
+    throw new Error(res.error);
+  }
+}

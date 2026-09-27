@@ -132,7 +132,7 @@ npm run build:extension
 
 Then `chrome://extensions` → Developer mode → **Load unpacked** → `quota-tray/ui/dist-extension`.
 
-Details: [`extension/README.md`](extension/README.md). Cursor can use your `cursor.com` browser login; Claude and Copilot need a credentials file import (Chrome cannot read Keychain or `state.vscdb`).
+Details: [`extension/README.md`](extension/README.md). Claude and Cursor can use your existing `claude.ai` / `cursor.com` browser login; Copilot needs a credentials file import (Chrome cannot read Keychain or `state.vscdb`).
 
 ## Workspace layout
 
