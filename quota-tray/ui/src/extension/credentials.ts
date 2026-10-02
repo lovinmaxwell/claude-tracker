@@ -108,6 +108,15 @@ export function parseAntigravitySecret(raw: string): string {
   if (typeof src.token_type === "string") {
     out.token_type = src.token_type;
   }
+  // Preserve client hints when present (ADC JSON or prior refresh).
+  if (src.oauth_client === "antigravity" || src.oauth_client === "gemini-cli") {
+    out.oauth_client = src.oauth_client;
+  }
+  if (typeof src.client_id === "string" && src.client_id) {
+    out.client_id = src.client_id;
+  } else if (typeof root.client_id === "string" && root.client_id) {
+    out.client_id = root.client_id;
+  }
   return JSON.stringify(out);
 }
 

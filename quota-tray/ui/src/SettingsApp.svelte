@@ -60,7 +60,7 @@
     Claude: "Uses your claude.ai login session, or import credentials",
     Cursor: "Uses your cursor.com login cookie, or paste a JWT",
     Copilot: "Import github-copilot apps.json / hosts.json",
-    Antigravity: "Chrome extension: import OAuth refresh token",
+    Antigravity: "Import jetski OAuth JSON (~/.gemini/jetski-standalone-oauth-token)",
   };
 
   const providerIds: Exclude<ProviderId, "OpenAI">[] = [

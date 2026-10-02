@@ -28,3 +28,9 @@ Thumbs.db
 
 .superpowers/
 graphify-out/
+
+# Local Antigravity OAuth import copies (contain refresh tokens)
+quota-tray/import-ready/*IMPORT.json
+quota-tray/extension/QuotaTray-chrome/
+quota-tray/extension/QuotaTray-chrome.zip
+quota-tray/ui/dist-extension/
