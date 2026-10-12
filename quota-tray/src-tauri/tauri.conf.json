@@ -58,7 +58,6 @@
         "displayLanguageSelector": false,
         "compression": "zlib",
         "installerIcon": "icons/icon.ico",
-        "uninstallerIcon": "icons/icon.ico",
         "startMenuFolder": "Quota Tray"
       }
     }
