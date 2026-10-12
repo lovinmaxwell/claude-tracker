@@ -73,20 +73,35 @@ struct WidgetRootView: View {
     @ObservedObject var hover: HoverState
 
     var body: some View {
+        // Ticks every 15s so countdowns and "Updated Xs ago" stay current.
         TimelineView(.periodic(from: Date(), by: 15)) { context in
-            let model = WidgetModel(snapshot: store.snapshot, lastError: store.lastError, now: context.date)
-            ZStack(alignment: .topLeading) {
-                PillView(model: model, now: context.date)
-                    .frame(width: WidgetLayout.pill.width, height: WidgetLayout.pill.height)
-                    .opacity(hover.expanded ? 0 : 1)
-                CardView(model: model, now: context.date)
-                    .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
-                    .opacity(hover.expanded ? 1 : 0)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .animation(.easeInOut(duration: WidgetLayout.animationDuration), value: hover.expanded)
+            WidgetContent(store: store, hover: hover, now: context.date)
         }
         .ignoresSafeArea()
+    }
+}
+
+/// Both layers stacked; the hover state fades between them.
+struct WidgetContent: View {
+    @ObservedObject var store: UsageStore
+    @ObservedObject var hover: HoverState
+    let now: Date
+
+    private var model: WidgetModel {
+        WidgetModel(snapshot: store.snapshot, lastError: store.lastError, now: now)
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            PillView(model: model, now: now)
+                .frame(width: WidgetLayout.pill.width, height: WidgetLayout.pill.height)
+                .opacity(hover.expanded ? 0 : 1)
+            CardView(model: model, now: now)
+                .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
+                .opacity(hover.expanded ? 1 : 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .animation(.easeInOut(duration: WidgetLayout.animationDuration), value: hover.expanded)
     }
 }
 
