@@ -1,6 +1,11 @@
 import SwiftUI
 import ClaudeUsageCore
 
+/// Tracks whether the pointer is over the widget; the AppKit side owns the truth.
+final class HoverState: ObservableObject {
+    @Published var expanded = false
+}
+
 enum WidgetPalette {
     static let session = Color(red: 0.788, green: 0.392, blue: 0.259)
     static let week = Color(red: 0.353, green: 0.478, blue: 0.416)
@@ -65,18 +70,21 @@ struct WidgetModel {
 
 struct WidgetRootView: View {
     @ObservedObject var store: UsageStore
+    @ObservedObject var hover: HoverState
 
     var body: some View {
         // Ticks every 15s so countdowns and "Updated Xs ago" stay current.
         TimelineView(.periodic(from: Date(), by: 15)) { context in
-            WidgetContent(store: store, now: context.date)
+            WidgetContent(store: store, hover: hover, now: context.date)
         }
         .ignoresSafeArea()
     }
 }
 
+/// Both layers stacked; the hover state fades between them.
 struct WidgetContent: View {
     @ObservedObject var store: UsageStore
+    @ObservedObject var hover: HoverState
     let now: Date
 
     private var model: WidgetModel {
@@ -84,13 +92,30 @@ struct WidgetContent: View {
     }
 
     var body: some View {
-        CardView(model: model, now: now)
-            .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        ZStack(alignment: .topLeading) {
+            RingsOnlyView(model: model)
+                .frame(width: WidgetLayout.rest.width, height: WidgetLayout.rest.height)
+                .opacity(hover.expanded ? 0 : 1)
+            CardView(model: model, now: now)
+                .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
+                .opacity(hover.expanded ? 1 : 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .animation(.easeInOut(duration: WidgetLayout.animationDuration), value: hover.expanded)
     }
 }
 
-/// The whole widget: status, rings, reset times.
+/// Resting state: only the rings, with nothing behind them.
+struct RingsOnlyView: View {
+    let model: WidgetModel
+
+    var body: some View {
+        RingStack(rings: model.rings, size: 96, stroke: 9, gap: 3, glyphSize: 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Hovered state: the full picture.
 struct CardView: View {
     let model: WidgetModel
     let now: Date
