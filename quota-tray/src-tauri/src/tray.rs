@@ -1,17 +1,26 @@
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{CheckMenuItem, Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, PhysicalPosition, Position, Rect, Runtime, Size, WebviewUrl, WebviewWindow,
-    WebviewWindowBuilder,
+    WebviewWindowBuilder, Wry,
 };
 
 const PANEL_WIDTH: f64 = 360.0;
 const PANEL_HEIGHT: f64 = 520.0;
 const PANEL_GAP: f64 = 4.0;
 
-pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub fn setup_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
+    let widget_item = CheckMenuItem::with_id(
+        app,
+        "toggle_widget",
+        "Show Floating Widget",
+        true,
+        crate::widget::is_visible(app),
+        None::<&str>,
+    )?;
+    crate::widget::attach_menu_item(app, widget_item.clone());
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&quit])?;
+    let menu = Menu::with_items(app, &[&widget_item, &quit])?;
 
     let initial_state = quota_tray_core::TrayState {
         providers: vec![],
@@ -24,10 +33,10 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .tooltip("Quota Tray")
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| {
-            if event.id.as_ref() == "quit" {
-                app.exit(0);
-            }
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "toggle_widget" => crate::widget::toggle(app),
+            "quit" => app.exit(0),
+            _ => {}
         })
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
