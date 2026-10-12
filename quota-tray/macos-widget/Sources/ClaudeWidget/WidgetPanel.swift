@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 /// A borderless panel that never takes focus, so showing or clicking the
@@ -9,7 +10,7 @@ final class FloatingPanel: NSPanel {
 }
 
 /// The window's content view. It owns every mouse event so the widget behaves
-/// the same wherever you hit it: hover brightens, drag moves, double-click opens.
+/// the same wherever you hit it: hover expands, drag moves, double-click opens.
 final class PanelContentView: NSView {
     var onHoverChange: ((Bool) -> Void)?
     var onDoubleClick: (() -> Void)?
@@ -50,25 +51,36 @@ final class PanelContentView: NSView {
     override func mouseEntered(with event: NSEvent) { onHoverChange?(true) }
     override func mouseExited(with event: NSEvent) { onHoverChange?(false) }
 
-    func setCornerRadius(_ radius: CGFloat) {
+    func setCornerRadius(_ radius: CGFloat, animated: Bool) {
         wantsLayer = true
         guard let layer else { return }
         layer.masksToBounds = true
+        if animated {
+            let animation = CABasicAnimation(keyPath: "cornerRadius")
+            animation.fromValue = layer.presentation()?.cornerRadius ?? layer.cornerRadius
+            animation.toValue = radius
+            animation.duration = WidgetLayout.animationDuration
+            layer.add(animation, forKey: "cornerRadius")
+        }
         layer.cornerRadius = radius
     }
 }
 
-/// Owns the floating window: placement, the 20% to 100% fade on hover, drag memory.
+/// Owns the floating window: placement, rings-to-card expand on hover, drag memory.
 final class WidgetPanelController: NSObject {
     var onDoubleClick: (() -> Void)?
 
     private let panel: FloatingPanel
     private let content = PanelContentView()
-    private var pendingRest: DispatchWorkItem?
-    private var isHovered = false
+    private let hover = HoverState()
+    private let glass = NSVisualEffectView()
+    private var pendingCollapse: DispatchWorkItem?
+    private var isAnimating = false
 
-    /// Top-left corner of the window in screen coordinates (y grows upward).
+    /// Top-left corner of the resting rings, in screen coordinates (y grows upward).
     private var anchor: NSPoint
+    /// How far left/up the expanded card sits from the anchor to stay on screen.
+    private var shift = NSPoint.zero
 
     private static let anchorXKey = "widgetAnchorX"
     private static let anchorYKey = "widgetAnchorY"
@@ -77,7 +89,7 @@ final class WidgetPanelController: NSObject {
 
     init(store: UsageStore) {
         panel = FloatingPanel(
-            contentRect: NSRect(origin: .zero, size: WidgetLayout.card),
+            contentRect: NSRect(origin: .zero, size: WidgetLayout.rest),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -89,7 +101,7 @@ final class WidgetPanelController: NSObject {
         panel.isFloatingPanel = true
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
@@ -98,23 +110,26 @@ final class WidgetPanelController: NSObject {
 
         // Frosted glass underneath, SwiftUI on top. A dedicated NSVisualEffectView
         // (state .active) keeps the blur even though this app is never frontmost.
-        let glass = NSVisualEffectView(frame: content.bounds)
+        // It stays hidden while resting so only the rings show, with no backing shape.
+        glass.frame = content.bounds
         glass.material = .popover
         glass.blendingMode = .behindWindow
         glass.state = .active
         glass.autoresizingMask = [.width, .height]
+        glass.isHidden = true
+        glass.alphaValue = 0
         content.addSubview(glass)
 
-        let host = NSHostingView(rootView: WidgetRootView(store: store))
+        let host = NSHostingView(rootView: WidgetRootView(store: store, hover: hover))
         host.frame = content.bounds
         host.autoresizingMask = [.width, .height]
         content.addSubview(host)
 
-        content.setCornerRadius(WidgetLayout.cardRadius)
+        content.setCornerRadius(WidgetLayout.restRadius, animated: false)
         content.onHoverChange = { [weak self] inside in self?.handleHover(inside) }
         content.onDoubleClick = { [weak self] in self?.onDoubleClick?() }
 
-        panel.setFrame(frame(), display: false)
+        panel.setFrame(frame(for: WidgetLayout.rest), display: false)
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidMove),
@@ -128,89 +143,127 @@ final class WidgetPanelController: NSObject {
         panel.orderFrontRegardless()
     }
 
-    func hide() {
-        pendingRest?.cancel()
-        isHovered = false
-        panel.alphaValue = WidgetLayout.restingAlpha
-        panel.orderOut(nil)
-    }
-
     /// Right-click menu, available wherever on the widget the click lands.
     func setContextMenu(_ menu: NSMenu) {
         content.menu = menu
     }
 
+    func hide() {
+        pendingCollapse?.cancel()
+        setExpanded(false, animated: false)
+        panel.orderOut(nil)
+    }
+
     func resetPosition() {
         anchor = WidgetPanelController.defaultAnchor()
         saveAnchor()
-        panel.setFrame(frame(), display: true)
+        setExpanded(false, animated: false)
+        panel.setFrame(frame(for: WidgetLayout.rest), display: true)
     }
 
     // MARK: - Hover
 
     private func handleHover(_ inside: Bool) {
-        pendingRest?.cancel()
+        pendingCollapse?.cancel()
         if inside {
-            setHovered(true)
+            setExpanded(true, animated: true)
             return
         }
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            // Trust where the pointer actually is, not a stray exit event.
+            // Drag-and-drop can shuffle enter/exit events; trust where the pointer actually is.
             if !self.panel.frame.contains(NSEvent.mouseLocation) {
-                self.setHovered(false)
+                self.setExpanded(false, animated: true)
             }
         }
-        pendingRest = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + WidgetLayout.restDelay, execute: work)
+        pendingCollapse = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + WidgetLayout.collapseDelay, execute: work)
     }
 
-    private func setHovered(_ hovered: Bool) {
-        guard isHovered != hovered else { return }
-        isHovered = hovered
-        let alpha = hovered ? 1 : WidgetLayout.restingAlpha
-        let panel = self.panel
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = WidgetLayout.fadeDuration
-            panel.animator().alphaValue = alpha
+    private func setExpanded(_ expanded: Bool, animated: Bool) {
+        guard hover.expanded != expanded else { return }
+        hover.expanded = expanded
+        let size = expanded ? WidgetLayout.card : WidgetLayout.rest
+        shift = expanded ? shiftToFit(size) : .zero
+        let target = frame(for: size)
+        let alpha = expanded ? 1 : WidgetLayout.restingAlpha
+        content.setCornerRadius(expanded ? WidgetLayout.cardRadius : WidgetLayout.restRadius, animated: animated)
+
+        guard animated, panel.isVisible else {
+            panel.setFrame(target, display: true)
+            panel.alphaValue = alpha
+            glass.alphaValue = expanded ? 1 : 0
+            applyChrome(expanded)
+            return
         }
+        isAnimating = true
+        if expanded {
+            // Glass and shadow must exist before the card fades in over them.
+            applyChrome(true)
+        }
+        let panel = self.panel
+        let glass = self.glass
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = WidgetLayout.animationDuration
+            panel.animator().setFrame(target, display: true)
+            panel.animator().alphaValue = alpha
+            glass.animator().alphaValue = expanded ? 1 : 0
+        }, completionHandler: { [weak self] in
+            guard let self else { return }
+            self.isAnimating = false
+            self.applyChrome(self.hover.expanded)
+            self.panel.invalidateShadow()
+        })
+    }
+
+    /// The glass backing and window shadow exist only while the card is showing.
+    private func applyChrome(_ expanded: Bool) {
+        glass.isHidden = !expanded
+        panel.hasShadow = expanded
     }
 
     // MARK: - Geometry
 
-    private func frame() -> NSRect {
+    private func frame(for size: CGSize) -> NSRect {
         NSRect(
-            x: anchor.x,
-            y: anchor.y - WidgetLayout.card.height,
-            width: WidgetLayout.card.width,
-            height: WidgetLayout.card.height
+            x: anchor.x - shift.x,
+            y: anchor.y + shift.y - size.height,
+            width: size.width,
+            height: size.height
         )
     }
 
+    /// Slides the card left/up just enough to keep it inside the screen's usable area.
+    private func shiftToFit(_ size: CGSize) -> NSPoint {
+        let probe = NSPoint(x: anchor.x + 1, y: anchor.y - 1)
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(probe) }) ?? NSScreen.main else {
+            return .zero
+        }
+        let area = screen.visibleFrame
+        let margin = WidgetLayout.screenMargin
+
+        let overflowX = max(0, anchor.x + size.width - (area.maxX - margin))
+        let roomX = max(0, anchor.x - (area.minX + margin))
+
+        let bottom = anchor.y - size.height
+        let overflowY = max(0, (area.minY + margin) - bottom)
+        let roomY = max(0, (area.maxY - margin) - anchor.y)
+
+        return NSPoint(x: min(overflowX, roomX), y: min(overflowY, roomY))
+    }
+
     @objc private func windowDidMove() {
-        anchor = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
+        guard !isAnimating else { return }
+        anchor = NSPoint(x: panel.frame.minX + shift.x, y: panel.frame.maxY - shift.y)
         saveAnchor()
     }
 
     /// A monitor was unplugged: don't leave the widget stranded off-screen.
     @objc private func screensChanged() {
-        if WidgetPanelController.fitted(anchor) == nil {
+        let probe = NSPoint(x: anchor.x + 1, y: anchor.y - 1)
+        if !NSScreen.screens.contains(where: { $0.frame.contains(probe) }) {
             resetPosition()
         }
-    }
-
-    /// Pulls a top-left anchor back inside the usable area of the screen it sits on;
-    /// nil when it is on no connected screen at all.
-    private static func fitted(_ anchor: NSPoint) -> NSPoint? {
-        let probe = NSPoint(x: anchor.x + 1, y: anchor.y - 1)
-        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(probe) }) else {
-            return nil
-        }
-        let area = screen.visibleFrame
-        let size = WidgetLayout.card
-        let x = min(max(anchor.x, area.minX), max(area.minX, area.maxX - size.width))
-        let y = min(max(anchor.y, area.minY + size.height), area.maxY)
-        return NSPoint(x: x, y: y)
     }
 
     // MARK: - Persistence
@@ -227,14 +280,16 @@ final class WidgetPanelController: NSObject {
             defaults.object(forKey: anchorXKey) != nil,
             defaults.object(forKey: anchorYKey) != nil
         else { return nil }
-        return fitted(NSPoint(x: defaults.double(forKey: anchorXKey), y: defaults.double(forKey: anchorYKey)))
+        let point = NSPoint(x: defaults.double(forKey: anchorXKey), y: defaults.double(forKey: anchorYKey))
+        let probe = NSPoint(x: point.x + 1, y: point.y - 1)
+        return NSScreen.screens.contains(where: { $0.frame.contains(probe) }) ? point : nil
     }
 
     /// First run: top-right corner of the main screen, clear of the menu bar.
     private static func defaultAnchor() -> NSPoint {
         let area = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         return NSPoint(
-            x: area.maxX - WidgetLayout.card.width - WidgetLayout.defaultInset,
+            x: area.maxX - WidgetLayout.rest.width - WidgetLayout.defaultInset,
             y: area.maxY - WidgetLayout.defaultInset
         )
     }
