@@ -71,6 +71,8 @@ First launch:
 
 Panel: click the menubar icon. Esc hides the panel. Poll interval default **60s** (settings clamp **60–120**).
 
+Floating widget: a small always-on-top pill that rests at **20% opacity** and grows into a full card (rings, reset countdowns, pace status, provider switcher) while the pointer is over it. Drag it anywhere; it remembers its spot. Toggle it from the tray menu (**Show Floating Widget**) or hide it with the × on the card. Preview the UI in a browser with `npm run dev --prefix ui` and open `http://localhost:1420/widget.html` (`?expanded=1` pins the card open; mock readings are used outside the app).
+
 ## Build
 
 ```bash
