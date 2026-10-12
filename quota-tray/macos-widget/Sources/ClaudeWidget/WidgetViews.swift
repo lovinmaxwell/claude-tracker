@@ -110,7 +110,9 @@ struct RingsOnlyView: View {
     let model: WidgetModel
 
     var body: some View {
-        RingStack(rings: model.rings, size: 96, stroke: 9, gap: 3, glyphSize: 16)
+        RingStack(rings: model.rings, size: 96, stroke: 9, gap: 3, glyphSize: 16, trackOpacity: 0.28)
+            // A soft shadow keeps the rings readable on light and dark wallpapers alike.
+            .shadow(color: Color.black.opacity(0.4), radius: 3, x: 0, y: 1)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -219,13 +221,15 @@ struct RingStack: View {
     let stroke: CGFloat
     let gap: CGFloat
     let glyphSize: CGFloat
+    /// How visible the empty part of each ring is; the resting rings need more.
+    var trackOpacity: Double = 0.1
 
     var body: some View {
         ZStack {
             ForEach(Array(rings.enumerated()), id: \.element.id) { index, ring in
                 let diameter = size - stroke - CGFloat(index) * 2 * (stroke + gap)
                 Circle()
-                    .stroke(Color.primary.opacity(0.1), lineWidth: stroke)
+                    .stroke(Color.primary.opacity(trackOpacity), lineWidth: stroke)
                     .frame(width: diameter, height: diameter)
                 if ring.used != nil {
                     Circle()
@@ -238,7 +242,7 @@ struct RingStack: View {
             }
             if rings.isEmpty {
                 Circle()
-                    .stroke(Color.primary.opacity(0.1), lineWidth: stroke)
+                    .stroke(Color.primary.opacity(trackOpacity), lineWidth: stroke)
                     .frame(width: size - stroke, height: size - stroke)
             }
             Image(systemName: "sparkle")

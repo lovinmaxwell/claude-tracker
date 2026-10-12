@@ -8,8 +8,9 @@ enum WidgetLayout {
     static let restRadius: CGFloat = 50
     static let cardRadius: CGFloat = 22
 
-    /// Window opacity until the pointer is over the widget.
-    static let restingAlpha: CGFloat = 0.2
+    /// Window opacity until the pointer is over the widget. Bare rings with no
+    /// backing vanish into a wallpaper at 20%, so the resting rings sit higher.
+    static let restingAlpha: CGFloat = 0.6
 
     static let screenMargin: CGFloat = 12
     static let defaultInset: CGFloat = 16
