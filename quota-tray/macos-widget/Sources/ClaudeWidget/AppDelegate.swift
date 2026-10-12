@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import ClaudeUsageCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -12,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let store = UsageStore()
     private var controller: WidgetPanelController?
     private var statusItem: NSStatusItem?
+    private var storeObserver: AnyCancellable?
+    /// Menu items with tags in this range are the live usage rows at the top of the menu.
+    private static let usageTags = 30..<40
     private static let hiddenKey = "widgetHidden"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -31,6 +35,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller.setContextMenu(makeMenu())
         installStatusItem()
 
+        // Keep the menu bar tooltip in step with each new reading.
+        storeObserver = store.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateTooltip() }
         store.start()
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(systemDidWake),
@@ -87,7 +95,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return menuItem
     }
 
+    // MARK: - Usage rows
+
+    /// One line each: overall status, every usage window, and how fresh the reading is.
+    private func usageRows() -> [String] {
+        let now = Date()
+        let snapshot = store.snapshot
+        let status = UsageAnalysis.summarize(
+            snapshot: snapshot,
+            isStale: snapshot != nil && store.lastError != nil,
+            error: store.lastError,
+            now: now
+        )
+        var rows = [status.detail.map { "\(status.headline) · \($0)" } ?? status.headline]
+        for window in snapshot?.windows ?? [] {
+            var line = "\(window.label): \(Formatters.percent(window.used))"
+            if let countdown = Formatters.countdown(to: window.resetsAt, now: now) {
+                line += " · resets in \(countdown)"
+                if let clock = Formatters.resetClock(window.resetsAt, now: now) {
+                    line += " (\(clock))"
+                }
+            }
+            rows.append(line)
+        }
+        if let age = Formatters.age(of: snapshot?.fetchedAt, now: now) {
+            rows.append("Updated \(age)")
+        }
+        return rows
+    }
+
+    /// Rebuilds the greyed-out usage rows at the top of the menu each time it opens.
+    private func refreshUsageRows(in menu: NSMenu) {
+        for existing in menu.items where AppDelegate.usageTags.contains(existing.tag) {
+            menu.removeItem(existing)
+        }
+        let rows = usageRows()
+        for (index, title) in rows.enumerated() {
+            let row = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            row.tag = AppDelegate.usageTags.lowerBound + index
+            row.isEnabled = false
+            menu.insertItem(row, at: index)
+        }
+        let divider = NSMenuItem.separator()
+        divider.tag = AppDelegate.usageTags.upperBound - 1
+        menu.insertItem(divider, at: rows.count)
+    }
+
+    private func updateTooltip() {
+        statusItem?.button?.toolTip = usageRows().joined(separator: "\n")
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
+        refreshUsageRows(in: menu)
         let terminal = ClaudeLauncher.preferredTarget == .terminal
         for menuItem in menu.items {
             switch Tag(rawValue: menuItem.tag) {
