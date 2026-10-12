@@ -1,11 +1,6 @@
 import SwiftUI
 import ClaudeUsageCore
 
-/// Tracks whether the pointer is over the widget; the AppKit side owns the truth.
-final class HoverState: ObservableObject {
-    @Published var expanded = false
-}
-
 enum WidgetPalette {
     static let session = Color(red: 0.788, green: 0.392, blue: 0.259)
     static let week = Color(red: 0.353, green: 0.478, blue: 0.416)
@@ -70,21 +65,18 @@ struct WidgetModel {
 
 struct WidgetRootView: View {
     @ObservedObject var store: UsageStore
-    @ObservedObject var hover: HoverState
 
     var body: some View {
         // Ticks every 15s so countdowns and "Updated Xs ago" stay current.
         TimelineView(.periodic(from: Date(), by: 15)) { context in
-            WidgetContent(store: store, hover: hover, now: context.date)
+            WidgetContent(store: store, now: context.date)
         }
         .ignoresSafeArea()
     }
 }
 
-/// Both layers stacked; the hover state fades between them.
 struct WidgetContent: View {
     @ObservedObject var store: UsageStore
-    @ObservedObject var hover: HoverState
     let now: Date
 
     private var model: WidgetModel {
@@ -92,53 +84,13 @@ struct WidgetContent: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            PillView(model: model, now: now)
-                .frame(width: WidgetLayout.pill.width, height: WidgetLayout.pill.height)
-                .opacity(hover.expanded ? 0 : 1)
-            CardView(model: model, now: now)
-                .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
-                .opacity(hover.expanded ? 1 : 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .animation(.easeInOut(duration: WidgetLayout.animationDuration), value: hover.expanded)
+        CardView(model: model, now: now)
+            .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
-/// Resting state: one ring, one number.
-struct PillView: View {
-    let model: WidgetModel
-    let now: Date
-
-    var body: some View {
-        HStack(spacing: 12) {
-            RingStack(rings: model.peak.map { [$0] } ?? [], size: 40, stroke: 5, gap: 0, glyphSize: 12)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(model.peak.map { "Claude · \($0.label)" } ?? "Claude")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text(Formatters.percent(model.peak?.used))
-                        .font(.system(size: 19, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundColor(model.status.tone == .hot ? WidgetPalette.hot : .primary)
-                    if let countdown = Formatters.countdown(to: model.peak?.resetsAt, now: now) {
-                        Text("· \(countdown)")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.leading, 12)
-        .padding(.trailing, 14)
-    }
-}
-
-/// Hovered state: the full picture.
+/// The whole widget: status, rings, reset times.
 struct CardView: View {
     let model: WidgetModel
     let now: Date
