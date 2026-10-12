@@ -1,4 +1,4 @@
-import CoreGraphics
+import Foundation
 
 /// Sizes and timings shared by the AppKit window and the SwiftUI content inside it.
 enum WidgetLayout {
