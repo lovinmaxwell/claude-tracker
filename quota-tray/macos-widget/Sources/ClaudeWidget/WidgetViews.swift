@@ -92,16 +92,23 @@ struct WidgetContent: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            RingsOnlyView(model: model)
-                .frame(width: WidgetLayout.rest.width, height: WidgetLayout.rest.height)
-                .opacity(hover.expanded ? 0 : 1)
-            CardView(model: model, now: now)
-                .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
-                .opacity(hover.expanded ? 1 : 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .animation(.easeInOut(duration: WidgetLayout.animationDuration), value: hover.expanded)
+        // The base is Color.clear so the layout always takes exactly the window's
+        // current size. The layers are overlaid at the top-left rather than stacked
+        // in a ZStack: the hidden 336x204 card would otherwise inflate the layout,
+        // and macOS would centre that in the small resting window, pushing the
+        // rings out of view.
+        Color.clear
+            .overlay(alignment: .topLeading) {
+                ZStack(alignment: .topLeading) {
+                    RingsOnlyView(model: model)
+                        .frame(width: WidgetLayout.rest.width, height: WidgetLayout.rest.height)
+                        .opacity(hover.expanded ? 0 : 1)
+                    CardView(model: model, now: now)
+                        .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
+                        .opacity(hover.expanded ? 1 : 0)
+                }
+                .animation(.easeInOut(duration: WidgetLayout.animationDuration), value: hover.expanded)
+            }
     }
 }
 
