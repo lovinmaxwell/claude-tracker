@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Quota Tray",
+  "version": "0.1.0",
+  "description": "Local AI coding quota for Claude Code, Cursor, GitHub Copilot, and Antigravity. No Quota Tray servers.",
+  "action": {
+    "default_title": "Quota Tray",
+    "default_popup": "index.html",
+    "default_icon": {
+      "32": "icons/32x32.png",
+      "128": "icons/128x128.png"
+    }
+  },
+  "options_page": "settings.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "32": "icons/32x32.png",
+    "128": "icons/128x128.png"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "cookies"
+  ],
+  "host_permissions": [
+    "https://api.anthropic.com/*",
+    "https://claude.ai/*",
+    "https://api2.cursor.sh/*",
+    "https://cursor.com/*",
+    "https://www.cursor.com/*",
+    "https://api.github.com/*",
+    "https://oauth2.googleapis.com/*",
+    "https://daily-cloudcode-pa.googleapis.com/*",
+    "https://cloudcode-pa.googleapis.com/*"
+  ]
+}
