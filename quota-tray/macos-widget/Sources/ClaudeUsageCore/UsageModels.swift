@@ -36,6 +36,7 @@ public enum UsageError: Error, Equatable {
     case http(Int)
     case network(String)
     case malformedResponse
+    case timedOut
 
     public var userMessage: String {
         switch self {
@@ -55,6 +56,8 @@ public enum UsageError: Error, Equatable {
             return "Can't reach Anthropic right now."
         case .malformedResponse:
             return "Anthropic sent a usage reply I couldn't read."
+        case .timedOut:
+            return "Checking usage took too long. If macOS asked about the Keychain, answer it."
         }
     }
 }

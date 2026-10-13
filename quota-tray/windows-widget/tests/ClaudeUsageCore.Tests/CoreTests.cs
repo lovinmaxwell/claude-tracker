@@ -252,3 +252,17 @@ public sealed class IconFillTests
     public void LightsTheRightNumberOfSteps(double? percent, int expected) =>
         Assert.Equal(expected, IconFill.LitSteps(percent));
 }
+
+public sealed class UsageErrorMessageTests
+{
+    [Fact]
+    public void EveryErrorKindHasAReadableMessage()
+    {
+        foreach (var kind in Enum.GetValues<UsageErrorKind>())
+        {
+            var message = new UsageException(kind, httpStatus: 503).UserMessage;
+            Assert.False(string.IsNullOrWhiteSpace(message), kind.ToString());
+            Assert.DoesNotContain("Something went wrong reading usage", message);
+        }
+    }
+}

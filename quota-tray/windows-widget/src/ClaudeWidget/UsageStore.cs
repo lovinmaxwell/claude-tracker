@@ -41,6 +41,9 @@ public sealed class UsageStore : IDisposable
 {
     private static readonly Uri Endpoint = new("https://api.anthropic.com/api/oauth/usage");
 
+    /// <summary>A poll still running after this long is abandoned so it can't block every later one.</summary>
+    private static readonly TimeSpan HungPollLimit = TimeSpan.FromSeconds(45);
+
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(60) };
     private bool _inFlight;
@@ -60,7 +63,10 @@ public sealed class UsageStore : IDisposable
         _ = RefreshAsync();
     }
 
-    /// <summary>Polls once; overlapping calls collapse into one.</summary>
+    /// <summary>
+    /// Polls once; overlapping calls collapse into one. This is the supervised boundary: whatever goes wrong
+    /// inside a poll becomes a "can't refresh" state with the last good reading kept, never a crash or a stall.
+    /// </summary>
     public async Task RefreshAsync()
     {
         if (_inFlight)
@@ -70,12 +76,21 @@ public sealed class UsageStore : IDisposable
         _inFlight = true;
         try
         {
-            Snapshot = await FetchAsync();
+            Snapshot = await FetchAsync().WaitAsync(HungPollLimit);
             LastError = null;
         }
         catch (UsageException error)
         {
             LastError = error;
+        }
+        catch (TimeoutException)
+        {
+            LastError = new UsageException(UsageErrorKind.TimedOut);
+        }
+        catch (Exception ex) when (AppLog.IsRecoverable(ex))
+        {
+            AppLog.Write($"unexpected error while polling: {ex}");
+            LastError = new UsageException(UsageErrorKind.Unexpected, ex.Message);
         }
         finally
         {

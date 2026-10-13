@@ -20,6 +20,7 @@ public sealed class WidgetApplication : Application
     private Forms.ContextMenuStrip? _menu;
     private Forms.ToolStripMenuItem? _toggleWidgetItem;
     private Forms.ToolStripMenuItem? _loginItem;
+    private Forms.ToolStripMenuItem? _crashRestartItem;
     private Forms.ToolStripMenuItem? _autoSessionItem;
     private Forms.ToolStripMenuItem? _lastAutoSessionItem;
 
@@ -27,6 +28,14 @@ public sealed class WidgetApplication : Application
     {
         // The widget lives in the tray; closing its window must not end the app.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        // A stray exception on the UI thread is logged and survived instead of taking the widget down.
+        DispatcherUnhandledException += (_, e) =>
+        {
+            AppLog.Write($"unhandled UI exception: {e.Exception}");
+            e.Handled = AppLog.IsRecoverable(e.Exception);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => AppLog.Write($"fatal exception: {e.ExceptionObject}");
     }
 
     protected override void OnStartup(StartupEventArgs e)
@@ -86,12 +95,20 @@ public sealed class WidgetApplication : Application
     /// <summary>After each reading: redraw everything, then start the next session if the 5-hour window has ended.</summary>
     private async void OnUsageUpdated()
     {
-        Render();
-        // A trigger starts a new window, so look at the usage again once it has run.
-        // The cooldown stops that second reading from triggering another send.
-        if (await _autoSession.StartIfNeededAsync(_store.Snapshot, readingFailed: _store.LastError is not null))
+        // async void: nothing may escape, or one bad redraw would crash the whole widget.
+        try
         {
-            await _store.RefreshAsync();
+            Render();
+            // A trigger starts a new window, so look at the usage again once it has run.
+            // The cooldown stops that second reading from triggering another send.
+            if (await _autoSession.StartIfNeededAsync(_store.Snapshot, readingFailed: _store.LastError is not null))
+            {
+                await _store.RefreshAsync();
+            }
+        }
+        catch (Exception ex) when (AppLog.IsRecoverable(ex))
+        {
+            AppLog.Write($"error after a reading: {ex}");
         }
     }
 
@@ -135,6 +152,8 @@ public sealed class WidgetApplication : Application
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _loginItem = new Forms.ToolStripMenuItem("Launch at Login", null, (_, _) => LaunchAtLogin.Set(!LaunchAtLogin.IsEnabled));
         _menu.Items.Add(_loginItem);
+        _crashRestartItem = new Forms.ToolStripMenuItem("Restart if It Crashes", null, (_, _) => CrashRestart.Set(!CrashRestart.IsEnabled));
+        _menu.Items.Add(_crashRestartItem);
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _autoSessionItem = new Forms.ToolStripMenuItem("Auto-Start New Session", null, async (_, _) => await ToggleAutoSession());
         _menu.Items.Add(_autoSessionItem);
@@ -147,7 +166,13 @@ public sealed class WidgetApplication : Application
         _lastAutoSessionItem = new Forms.ToolStripMenuItem("No auto-start yet") { Enabled = false };
         _menu.Items.Add(_lastAutoSessionItem);
         _menu.Items.Add(new Forms.ToolStripSeparator());
-        _menu.Items.Add("Quit Claude Widget", null, (_, _) => Shutdown());
+        _menu.Items.Add("Quit Claude Widget", null, (_, _) =>
+        {
+            // Remember the choice so the crash-restart task doesn't bring the widget straight back.
+            SettingsStore.Current.UserQuit = true;
+            SettingsStore.Save();
+            Shutdown();
+        });
         _menu.Opening += (_, _) => RefreshMenuState();
 
         _tray = new Forms.NotifyIcon
@@ -178,6 +203,10 @@ public sealed class WidgetApplication : Application
         if (_loginItem is not null)
         {
             _loginItem.Checked = LaunchAtLogin.IsEnabled;
+        }
+        if (_crashRestartItem is not null)
+        {
+            _crashRestartItem.Checked = CrashRestart.IsEnabled;
         }
         if (_autoSessionItem is not null)
         {

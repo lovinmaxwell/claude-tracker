@@ -18,6 +18,8 @@ public enum UsageErrorKind
     Http,
     Network,
     MalformedResponse,
+    TimedOut,
+    Unexpected,
 }
 
 /// <summary>A failed reading, carrying the kind of failure and a user-facing message.</summary>
@@ -39,6 +41,8 @@ public sealed class UsageException(UsageErrorKind kind, string? detail = null, i
         UsageErrorKind.Http => $"Anthropic returned HTTP {HttpStatus}.",
         UsageErrorKind.Network => "Can't reach Anthropic right now.",
         UsageErrorKind.MalformedResponse => "Anthropic sent a usage reply I couldn't read.",
+        UsageErrorKind.TimedOut => "Checking usage took too long. Will try again shortly.",
+        UsageErrorKind.Unexpected => "Something unexpected went wrong. Will try again shortly.",
         _ => "Something went wrong reading usage.",
     };
 }
