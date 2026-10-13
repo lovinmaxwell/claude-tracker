@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using ClaudeUsageCore;
 using Forms = System.Windows.Forms;
 
 namespace ClaudeWidget;
@@ -26,7 +27,7 @@ public sealed class WidgetWindow : Window
     private const int WsExToolWindow = 0x00000080;
     private const int WsExNoActivate = 0x08000000;
 
-    private readonly RingsControl _rings = new();
+    private readonly TrackerIconControl _icon = new();
     private readonly CardView _card = new();
     private readonly DispatcherTimer _collapseTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private Point _anchor;
@@ -54,16 +55,15 @@ public sealed class WidgetWindow : Window
         Width = Height = RestSize;
         Opacity = RestingOpacity;
 
-        _rings.Configure(96, 9, 3, 0.28, shadow: true);
-        _rings.HorizontalAlignment = HorizontalAlignment.Left;
-        _rings.VerticalAlignment = VerticalAlignment.Top;
-        _rings.Margin = new Thickness(2);
+        _icon.HorizontalAlignment = HorizontalAlignment.Left;
+        _icon.VerticalAlignment = VerticalAlignment.Top;
+        _icon.Margin = new Thickness(2);
         _card.HorizontalAlignment = HorizontalAlignment.Left;
         _card.VerticalAlignment = VerticalAlignment.Top;
         _card.Visibility = Visibility.Collapsed;
 
         var root = new Grid();
-        root.Children.Add(_rings);
+        root.Children.Add(_icon);
         root.Children.Add(_card);
         Content = root;
 
@@ -98,7 +98,7 @@ public sealed class WidgetWindow : Window
     /// <summary>Redraws both layers from the latest model.</summary>
     public void UpdateModel(WidgetModel model, DateTimeOffset now)
     {
-        _rings.SetRings(model.Rings);
+        _icon.SetUsage(model.Peak?.Used, model.Status.Tone == Tone.Stale);
         _card.Update(model, now, "Double-click opens Claude Code");
     }
 
@@ -174,7 +174,7 @@ public sealed class WidgetWindow : Window
             _programmatic = false;
         }
 
-        _rings.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
+        _icon.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
         _card.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         BeginAnimation(OpacityProperty, new DoubleAnimation(expanded ? 1 : RestingOpacity, TimeSpan.FromMilliseconds(200)));
     }

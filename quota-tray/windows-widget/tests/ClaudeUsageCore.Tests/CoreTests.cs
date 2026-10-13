@@ -236,3 +236,19 @@ public sealed class AutoSessionPolicyTests
         Assert.True(Decide(Snapshot(-1), last: Now.AddMinutes(-61), lastOk: false));
     }
 }
+
+public sealed class IconFillTests
+{
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(0.0, 0)]
+    [InlineData(4.0, 0)]
+    [InlineData(4.2, 1)]
+    [InlineData(50.0, 6)]
+    [InlineData(62.0, 7)]
+    [InlineData(100.0, 12)]
+    [InlineData(140.0, 12)]
+    [InlineData(-5.0, 0)]
+    public void LightsTheRightNumberOfSteps(double? percent, int expected) =>
+        Assert.Equal(expected, IconFill.LitSteps(percent));
+}

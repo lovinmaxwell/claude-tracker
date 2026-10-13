@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
@@ -10,33 +11,6 @@ namespace ClaudeWidget;
 public sealed class RingsControl : FrameworkElement
 {
     private static readonly Brush HitBackdrop = Theme.Brush(Color.FromArgb(1, 0, 0, 0));
-
-    /// <summary>
-    /// The creature from the Claude Tracker icon, from the same 16x16 grid as the original
-    /// (app/Services/PixelMascot.php). B is body, E is an eye, a dot is empty.
-    /// </summary>
-    private static readonly string[] MascotArt =
-    [
-        "................",
-        "................",
-        "...BBBBBBBBBB...",
-        "...BBBBBBBBBB...",
-        "...BEEBBBBEEB...",
-        "...BEEBBBBEEB...",
-        ".BBBBBBBBBBBBBB.",
-        ".BBBBBBBBBBBBBB.",
-        ".BBBBBBBBBBBBBB.",
-        "...BBBBBBBBBB...",
-        "...BBBBBBBBBB...",
-        "...BB.BB.BB.BB..",
-        "...BB.BB.BB.BB..",
-        "...BB.BB.BB.BB..",
-        "................",
-        "................",
-    ];
-
-    private static readonly Brush MascotBody = Theme.Brush(Theme.Resolve(RingColor.Session));
-    private static readonly Brush MascotEye = Theme.Brush(Color.FromRgb(0x1B, 0x1B, 0x14));
 
     private IReadOnlyList<RingModel> _rings = [];
     private double _size = 96;
@@ -138,19 +112,7 @@ public sealed class RingsControl : FrameworkElement
     {
         var innerRadius = _size / 2 - _stroke - (ringCount - 1) * (_stroke + _gap);
         var cell = Math.Max(1, innerRadius * 2 * 0.7 / 14);
-
-        for (var y = 0; y < MascotArt.Length; y++)
-        {
-            for (var x = 0; x < MascotArt[y].Length; x++)
-            {
-                if (MascotArt[y][x] == '.')
-                {
-                    continue;
-                }
-                // The art is centred on cell (8, 8); the small overlap hides hairline seams between cells.
-                var cellRect = new Rect(center.X + (x - 8) * cell, center.Y + (y - 8) * cell, cell + 0.4, cell + 0.4);
-                context.DrawRectangle(MascotArt[y][x] == 'E' ? MascotEye : MascotBody, null, cellRect);
-            }
-        }
+        double? peak = _rings.Max(r => r.Used);
+        Mascot.Draw(context, center, cell, peak);
     }
 }

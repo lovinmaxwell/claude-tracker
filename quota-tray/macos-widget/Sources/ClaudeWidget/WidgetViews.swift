@@ -100,7 +100,7 @@ struct WidgetContent: View {
         Color.clear
             .overlay(alignment: .topLeading) {
                 ZStack(alignment: .topLeading) {
-                    RingsOnlyView(model: model)
+                    RestIconView(model: model)
                         .frame(width: WidgetLayout.rest.width, height: WidgetLayout.rest.height)
                         .opacity(hover.expanded ? 0 : 1)
                     CardView(model: model, now: now, hint: "Double-click opens Claude Code")
@@ -112,13 +112,13 @@ struct WidgetContent: View {
     }
 }
 
-/// Resting state: only the rings, with nothing behind them.
-struct RingsOnlyView: View {
+/// Resting state: just the Claude Tracker icon (pill ring around the creature), nothing behind it.
+struct RestIconView: View {
     let model: WidgetModel
 
     var body: some View {
-        RingStack(rings: model.rings, size: 96, stroke: 9, gap: 3, trackOpacity: 0.28)
-            // A soft shadow keeps the rings readable on light and dark wallpapers alike.
+        TrackerIconView(used: model.peak?.used, isStale: model.status.tone == .stale, size: 96)
+            // A soft shadow keeps the icon readable on light and dark wallpapers alike.
             .shadow(color: Color.black.opacity(0.4), radius: 3, x: 0, y: 1)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -253,7 +253,7 @@ struct RingStack: View {
                     .stroke(Color.primary.opacity(trackOpacity), lineWidth: stroke)
                     .frame(width: size - stroke, height: size - stroke)
             }
-            MascotView(cell: mascotCell)
+            MascotView(cell: mascotCell, fill: rings.compactMap(\.used).max())
         }
         .frame(width: size, height: size)
     }
