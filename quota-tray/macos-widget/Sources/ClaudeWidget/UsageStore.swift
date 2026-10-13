@@ -71,6 +71,9 @@ final class UsageStore: ObservableObject {
     @Published private(set) var snapshot: UsageSnapshot?
     @Published private(set) var lastError: UsageError?
 
+    /// Called on the main thread after every poll, successful or not.
+    var onUpdate: (() -> Void)?
+
     private let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     private let pollInterval: TimeInterval = 60
     private let session = URLSession(configuration: .ephemeral)
@@ -102,6 +105,7 @@ final class UsageStore: ObservableObject {
                 case .failure(let error):
                     self.lastError = (error as? UsageError) ?? .network(error.localizedDescription)
                 }
+                self.onUpdate?()
             }
         }
     }
