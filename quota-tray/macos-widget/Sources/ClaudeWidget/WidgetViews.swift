@@ -117,7 +117,7 @@ struct RingsOnlyView: View {
     let model: WidgetModel
 
     var body: some View {
-        RingStack(rings: model.rings, size: 96, stroke: 9, gap: 3, glyphSize: 16, trackOpacity: 0.28)
+        RingStack(rings: model.rings, size: 96, stroke: 9, gap: 3, trackOpacity: 0.28)
             // A soft shadow keeps the rings readable on light and dark wallpapers alike.
             .shadow(color: Color.black.opacity(0.4), radius: 3, x: 0, y: 1)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -142,7 +142,7 @@ struct CardView: View {
                 .padding(.top, 4)
 
             HStack(spacing: 16) {
-                RingStack(rings: model.rings, size: 96, stroke: 9, gap: 3, glyphSize: 16)
+                RingStack(rings: model.rings, size: 96, stroke: 9, gap: 3)
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(model.rings) { ring in
                         RingRow(ring: ring, now: now)
@@ -223,13 +223,12 @@ struct RingRow: View {
     }
 }
 
-/// Concentric progress rings, outermost first, with a spark in the middle.
+/// Concentric progress rings, outermost first, with the Claude Tracker creature in the middle.
 struct RingStack: View {
     let rings: [RingModel]
     let size: CGFloat
     let stroke: CGFloat
     let gap: CGFloat
-    let glyphSize: CGFloat
     /// How visible the empty part of each ring is; the resting rings need more.
     var trackOpacity: Double = 0.1
 
@@ -254,11 +253,16 @@ struct RingStack: View {
                     .stroke(Color.primary.opacity(trackOpacity), lineWidth: stroke)
                     .frame(width: size - stroke, height: size - stroke)
             }
-            Image(systemName: "sparkle")
-                .font(.system(size: glyphSize, weight: .semibold))
-                .foregroundColor(.secondary)
+            MascotView(cell: mascotCell)
         }
         .frame(width: size, height: size)
+    }
+
+    /// Cell size that fits the creature inside the innermost ring with a little breathing room.
+    private var mascotCell: CGFloat {
+        let ringCount = max(rings.count, 1)
+        let innerRadius = size / 2 - stroke - CGFloat(ringCount - 1) * (stroke + gap)
+        return max(1, innerRadius * 2 * 0.7 / 14)
     }
 }
 

@@ -6,10 +6,37 @@ using System.Windows.Media.Effects;
 
 namespace ClaudeWidget;
 
-/// <summary>Concentric progress rings, outermost first, with a spark in the middle.</summary>
+/// <summary>Concentric progress rings, outermost first, with the Claude Tracker creature in the middle.</summary>
 public sealed class RingsControl : FrameworkElement
 {
     private static readonly Brush HitBackdrop = Theme.Brush(Color.FromArgb(1, 0, 0, 0));
+
+    /// <summary>
+    /// The creature from the Claude Tracker icon, from the same 16x16 grid as the original
+    /// (app/Services/PixelMascot.php). B is body, E is an eye, a dot is empty.
+    /// </summary>
+    private static readonly string[] MascotArt =
+    [
+        "................",
+        "................",
+        "...BBBBBBBBBB...",
+        "...BBBBBBBBBB...",
+        "...BEEBBBBEEB...",
+        "...BEEBBBBEEB...",
+        ".BBBBBBBBBBBBBB.",
+        ".BBBBBBBBBBBBBB.",
+        ".BBBBBBBBBBBBBB.",
+        "...BBBBBBBBBB...",
+        "...BBBBBBBBBB...",
+        "...BB.BB.BB.BB..",
+        "...BB.BB.BB.BB..",
+        "...BB.BB.BB.BB..",
+        "................",
+        "................",
+    ];
+
+    private static readonly Brush MascotBody = Theme.Brush(Theme.Resolve(RingColor.Session));
+    private static readonly Brush MascotEye = Theme.Brush(Color.FromRgb(0x1B, 0x1B, 0x14));
 
     private IReadOnlyList<RingModel> _rings = [];
     private double _size = 96;
@@ -65,7 +92,7 @@ public sealed class RingsControl : FrameworkElement
             }
         }
 
-        DrawSpark(drawingContext, center, theme);
+        DrawMascot(drawingContext, center, drawn);
     }
 
     /// <summary>Draws the filled arc, starting at 12 o'clock and running clockwise.</summary>
@@ -106,17 +133,24 @@ public sealed class RingsControl : FrameworkElement
         context.DrawGeometry(null, pen, geometry);
     }
 
-    /// <summary>The four-stroke spark in the centre of the rings.</summary>
-    private void DrawSpark(DrawingContext context, Point center, Theme theme)
+    /// <summary>Draws the creature, sized to sit inside the innermost ring with a little breathing room.</summary>
+    private void DrawMascot(DrawingContext context, Point center, int ringCount)
     {
-        var pen = new Pen(Theme.Brush(theme.Muted), 2.4) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-        pen.Freeze();
-        var arm = Math.Min(8, _size / 6);
-        foreach (var degrees in new[] { 0, 45, 90, 135 })
+        var innerRadius = _size / 2 - _stroke - (ringCount - 1) * (_stroke + _gap);
+        var cell = Math.Max(1, innerRadius * 2 * 0.7 / 14);
+
+        for (var y = 0; y < MascotArt.Length; y++)
         {
-            var radians = degrees * Math.PI / 180;
-            var (dx, dy) = (arm * Math.Sin(radians), arm * Math.Cos(radians));
-            context.DrawLine(pen, new Point(center.X - dx, center.Y - dy), new Point(center.X + dx, center.Y + dy));
+            for (var x = 0; x < MascotArt[y].Length; x++)
+            {
+                if (MascotArt[y][x] == '.')
+                {
+                    continue;
+                }
+                // The art is centred on cell (8, 8); the small overlap hides hairline seams between cells.
+                var cellRect = new Rect(center.X + (x - 8) * cell, center.Y + (y - 8) * cell, cell + 0.4, cell + 0.4);
+                context.DrawRectangle(MascotArt[y][x] == 'E' ? MascotEye : MascotBody, null, cellRect);
+            }
         }
     }
 }
