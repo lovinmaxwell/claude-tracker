@@ -7,7 +7,8 @@ namespace ClaudeWidget;
 
 /// <summary>
 /// The pixel creature from the Claude Tracker icon, drawn from the same 16x16 grid as the original
-/// (app/Services/PixelMascot.php). Like the original, it fills with terracotta from the feet up.
+/// (PixelMascot in the original Claude Tracker by Bhargav Detroja; see the root README credits). Like the
+/// original, it fills with terracotta from the feet up.
 /// </summary>
 public static class Mascot
 {

@@ -2,7 +2,8 @@ import ClaudeUsageCore
 import SwiftUI
 
 /// The pixel creature from the Claude Tracker icon, drawn from the same 16x16 grid as
-/// the original (`app/Services/PixelMascot.php`) so it stays identical across the apps.
+/// the original `PixelMascot` in Bhargav Detroja's Claude Tracker (see the root README credits), so it
+/// stays identical across the apps.
 /// Like the original, it fills with terracotta from the feet up as usage grows.
 enum MascotArt {
     /// B is body, E is an eye, a dot is empty.

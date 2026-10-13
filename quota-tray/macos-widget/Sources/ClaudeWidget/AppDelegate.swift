@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case launchAtLogin = 20
         case autoSession = 40
         case lastAutoSession = 41
+        case crashRestart = 50
     }
 
     private let store = UsageStore()
@@ -117,6 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Double-Click Opens Claude Code", #selector(chooseTerminal), tag: .doubleClickTerminal))
         menu.addItem(item("Double-Click Opens Claude App", #selector(chooseDesktopApp), tag: .doubleClickApp))
         menu.addItem(item("Launch at Login", #selector(toggleLaunchAtLogin), tag: .launchAtLogin))
+        menu.addItem(item("Restart if It Crashes", #selector(toggleCrashRestart), tag: .crashRestart))
         menu.addItem(.separator())
         menu.addItem(item("Auto-Start New Session", #selector(toggleAutoSession), tag: .autoSession))
         menu.addItem(item("Set Trigger Message…", #selector(editTriggerMessage)))
@@ -192,6 +194,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 menuItem.state = terminal ? .off : .on
             case .launchAtLogin:
                 menuItem.state = LaunchAtLogin.isEnabled ? .on : .off
+            case .crashRestart:
+                menuItem.state = CrashRestart.isEnabled ? .on : .off
             case .autoSession:
                 menuItem.state = AutoSessionRunner.isEnabled ? .on : .off
             case .lastAutoSession:
@@ -268,6 +272,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             controller.show()
             UserDefaults.standard.set(false, forKey: AppDelegate.hiddenKey)
         }
+    }
+
+    @objc private func toggleCrashRestart() {
+        CrashRestart.set(!CrashRestart.isEnabled)
     }
 
     @objc private func toggleLaunchAtLogin() {

@@ -14,6 +14,9 @@ public sealed class AppSettings
 
     public bool WidgetHidden { get; set; }
 
+    /// <summary>Set by the Quit menu item so the crash-restart task does not bring the widget back.</summary>
+    public bool UserQuit { get; set; }
+
     public bool LaunchAtLoginOffered { get; set; }
 
     public bool AutoSessionEnabled { get; set; }

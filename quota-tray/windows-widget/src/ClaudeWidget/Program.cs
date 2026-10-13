@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using ClaudeWidget;
 
@@ -7,6 +8,20 @@ using var singleInstance = new Mutex(initiallyOwned: true, @"Local\ClaudeWidget.
 if (!isFirstInstance)
 {
     return;
+}
+
+// A launch from the crash-restart task passes --watchdog. If the user chose Quit, stay quit; a launch the user
+// starts themselves (double-click, login item) clears that choice.
+var settings = SettingsStore.Current;
+var launchedByWatchdog = args.Contains(CrashRestart.LaunchArgument);
+if (launchedByWatchdog && settings.UserQuit)
+{
+    return;
+}
+if (!launchedByWatchdog && settings.UserQuit)
+{
+    settings.UserQuit = false;
+    SettingsStore.Save();
 }
 
 // WPF needs a single-threaded apartment, which top-level statements can't request directly.

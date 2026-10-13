@@ -137,3 +137,16 @@ final class AnalysisTests: XCTestCase {
         XCTAssertEqual(UsageAnalysis.peak(snap.windows)?.id, "seven_day")
     }
 }
+
+final class UsageErrorMessageTests: XCTestCase {
+    func testEveryErrorHasAReadableMessage() {
+        let all: [UsageError] = [
+            .credentialsMissing, .credentialsUnreadable("x"), .credentialsMalformed, .tokenExpired,
+            .unauthorized, .http(500), .network("x"), .malformedResponse, .timedOut,
+        ]
+        for error in all {
+            XCTAssertFalse(error.userMessage.isEmpty, "\(error)")
+        }
+        XCTAssertTrue(UsageError.http(503).userMessage.contains("503"))
+    }
+}
