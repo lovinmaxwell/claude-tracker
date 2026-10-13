@@ -107,7 +107,7 @@ public sealed class WidgetApplication : Application
         if (_tray is not null)
         {
             var previous = _tray.Icon;
-            _tray.Icon = TrayIconRenderer.Render(model.Peak);
+            _tray.Icon = TrayIconRenderer.Render(model.Peak?.Used, model.Status.Tone == Tone.Stale);
             previous?.Dispose();
             _tray.Text = Tooltip(model);
         }
@@ -152,7 +152,7 @@ public sealed class WidgetApplication : Application
 
         _tray = new Forms.NotifyIcon
         {
-            Icon = TrayIconRenderer.Render(null),
+            Icon = TrayIconRenderer.Render(null, isStale: false),
             Text = "Claude usage",
             ContextMenuStrip = _menu,
             Visible = true,

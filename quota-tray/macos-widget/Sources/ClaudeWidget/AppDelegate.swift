@@ -67,11 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let image = NSImage(systemSymbolName: "gauge", accessibilityDescription: "Claude usage") {
-            item.button?.image = image
-        } else {
-            item.button?.title = "Claude"
-        }
+        // Starts as the empty tracker icon; updateTooltip() redraws it with each reading.
+        item.button?.image = trackerIcon(used: nil, isStale: false)
         // Left-click shows the same card as the floating widget; right-click shows the menu.
         item.button?.target = self
         item.button?.action = #selector(statusItemClicked(_:))
@@ -171,6 +168,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateTooltip() {
         statusItem?.button?.toolTip = usageRows().joined(separator: "\n")
+        let stale = store.snapshot != nil && store.lastError != nil
+        statusItem?.button?.image = trackerIcon(
+            used: UsageAnalysis.peak(store.snapshot?.windows ?? [])?.used,
+            isStale: stale
+        )
+    }
+
+    /// The Claude Tracker icon rendered for the menu bar (18 points, full colour rather than a template).
+    private func trackerIcon(used: Double?, isStale: Bool) -> NSImage? {
+        let renderer = ImageRenderer(content: TrackerIconView(used: used, isStale: isStale, size: 18))
+        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        return renderer.nsImage
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {

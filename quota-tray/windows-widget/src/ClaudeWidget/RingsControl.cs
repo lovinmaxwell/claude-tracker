@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 
 namespace ClaudeWidget;
 
-/// <summary>Concentric progress rings, outermost first, with a spark in the middle.</summary>
+/// <summary>Concentric progress rings, outermost first, with the Claude Tracker creature in the middle.</summary>
 public sealed class RingsControl : FrameworkElement
 {
     private static readonly Brush HitBackdrop = Theme.Brush(Color.FromArgb(1, 0, 0, 0));
@@ -65,7 +66,7 @@ public sealed class RingsControl : FrameworkElement
             }
         }
 
-        DrawSpark(drawingContext, center, theme);
+        DrawMascot(drawingContext, center, drawn);
     }
 
     /// <summary>Draws the filled arc, starting at 12 o'clock and running clockwise.</summary>
@@ -106,17 +107,12 @@ public sealed class RingsControl : FrameworkElement
         context.DrawGeometry(null, pen, geometry);
     }
 
-    /// <summary>The four-stroke spark in the centre of the rings.</summary>
-    private void DrawSpark(DrawingContext context, Point center, Theme theme)
+    /// <summary>Draws the creature, sized to sit inside the innermost ring with a little breathing room.</summary>
+    private void DrawMascot(DrawingContext context, Point center, int ringCount)
     {
-        var pen = new Pen(Theme.Brush(theme.Muted), 2.4) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-        pen.Freeze();
-        var arm = Math.Min(8, _size / 6);
-        foreach (var degrees in new[] { 0, 45, 90, 135 })
-        {
-            var radians = degrees * Math.PI / 180;
-            var (dx, dy) = (arm * Math.Sin(radians), arm * Math.Cos(radians));
-            context.DrawLine(pen, new Point(center.X - dx, center.Y - dy), new Point(center.X + dx, center.Y + dy));
-        }
+        var innerRadius = _size / 2 - _stroke - (ringCount - 1) * (_stroke + _gap);
+        var cell = Math.Max(1, innerRadius * 2 * 0.7 / 14);
+        double? peak = _rings.Max(r => r.Used);
+        Mascot.Draw(context, center, cell, peak);
     }
 }

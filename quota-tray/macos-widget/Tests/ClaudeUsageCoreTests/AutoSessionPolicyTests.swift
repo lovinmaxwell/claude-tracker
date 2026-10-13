@@ -56,3 +56,14 @@ final class AutoSessionPolicyTests: XCTestCase {
         XCTAssertTrue(decide(ended, last: now.addingTimeInterval(-61 * 60), lastOK: false))
     }
 }
+
+final class IconFillTests: XCTestCase {
+    func testLightsTheRightNumberOfSteps() {
+        let cases: [(Double?, Int)] = [
+            (nil, 0), (0, 0), (4, 0), (4.2, 1), (50, 6), (62, 7), (100, 12), (140, 12), (-5, 0),
+        ]
+        for (percent, expected) in cases {
+            XCTAssertEqual(IconFill.litSteps(percent), expected, "percent: \(String(describing: percent))")
+        }
+    }
+}
