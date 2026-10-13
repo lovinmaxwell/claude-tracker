@@ -175,11 +175,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
     }
 
-    /// The Claude Tracker icon rendered for the menu bar (18 points, full colour rather than a template).
+    /// The Claude Tracker icon for the menu bar (18 points, full colour rather than a template).
     private func trackerIcon(used: Double?, isStale: Bool) -> NSImage? {
-        let renderer = ImageRenderer(content: TrackerIconView(used: used, isStale: isStale, size: 18))
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
-        return renderer.nsImage
+        TrackerIconImage.make(used: used, isStale: isStale, size: 18)
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
