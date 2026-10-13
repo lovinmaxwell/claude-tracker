@@ -73,6 +73,15 @@ Panel: click the menubar icon. Esc hides the panel. Poll interval default **60s*
 
 Floating widget: a small always-on-top pill that rests at **20% opacity** and grows into a full card (rings, reset countdowns, pace status, provider switcher) while the pointer is over it. Drag it anywhere; it remembers its spot. Toggle it from the tray menu (**Show Floating Widget**) or hide it with the × on the card. Preview the UI in a browser with `npm run dev --prefix ui` and open `http://localhost:1420/widget.html` (`?expanded=1` pins the card open; mock readings are used outside the app).
 
+## Native floating widgets (Claude usage only)
+
+Two standalone widgets that show only Claude Code usage: faded rings at rest, the full card on hover, drag to move, double-click to open Claude Code, a tray icon whose click shows the same card, and an opt-in "auto-start new session" that runs `claude -p "<message>"` when the 5-hour window ends.
+
+| Platform | Folder | Run it |
+| --- | --- | --- |
+| macOS 13+ | [`macos-widget/`](macos-widget) | `./scripts/install.sh` (Swift) |
+| Windows 10/11 | [`windows-widget/`](windows-widget) | Portable `ClaudeWidget.exe`: no installer, no admin, current user only. Download it from the **Claude Widget for Windows** release, or build it with `.\scripts\publish.ps1` (.NET 10 SDK). |
+
 ## Build
 
 ```bash
