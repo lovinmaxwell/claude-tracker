@@ -6,7 +6,7 @@ use thiserror::Error;
 
 pub const MASCOT_GRID: usize = 16;
 
-/// B = body, E = eye, . = empty — from Claude Tracker PixelMascot.
+/// B = body, E = eye, . = empty — from PixelMascot in the original Claude Tracker by Bhargav Detroja.
 pub const MASCOT_ART: [&str; 16] = [
     "................",
     "................",

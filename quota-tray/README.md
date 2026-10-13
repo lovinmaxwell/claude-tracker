@@ -67,7 +67,7 @@ First launch:
 1. Open **Settings** and enable Claude / Cursor / Copilot as needed.
 2. Approve Keychain prompts for Claude when asked.
 3. Sign in to Cursor and GitHub Copilot in their official apps first so local tokens exist.
-4. Quit the older **Claude Tracker** (Laravel/NativePHP) once Quota Tray’s Claude row is healthy to avoid double polling.
+4. If you also run the original **Claude Tracker** (Bhargav Detroja’s Laravel/NativePHP app, which this project forked from), quit it once Quota Tray’s Claude row is healthy to avoid double polling.
 
 Panel: click the menubar icon. Esc hides the panel. Poll interval default **60s** (settings clamp **60–120**).
 
