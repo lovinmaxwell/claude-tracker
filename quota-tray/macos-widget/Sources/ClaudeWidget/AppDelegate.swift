@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import SwiftUI
 import ClaudeUsageCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -8,14 +9,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case doubleClickTerminal = 10
         case doubleClickApp = 11
         case launchAtLogin = 20
+        case autoSession = 40
+        case lastAutoSession = 41
     }
 
     private let store = UsageStore()
     private var controller: WidgetPanelController?
     private var statusItem: NSStatusItem?
     private var storeObserver: AnyCancellable?
-    /// Menu items with tags in this range are the live usage rows at the top of the menu.
-    private static let usageTags = 30..<40
+    private let popover = NSPopover()
+    private let autoSession = AutoSessionRunner()
     private static let hiddenKey = "widgetHidden"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -34,6 +37,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Right-clicking the widget and the menu bar item share one menu.
         controller.setContextMenu(makeMenu())
         installStatusItem()
+
+        // After each reading: start the next session if the 5-hour window has ended.
+        store.onUpdate = { [weak self] in self?.evaluateAutoSession() }
 
         // Keep the menu bar tooltip in step with each new reading.
         storeObserver = store.objectWillChange
@@ -66,8 +72,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             item.button?.title = "Claude"
         }
-        item.menu = makeMenu()
+        // Left-click shows the same card as the floating widget; right-click shows the menu.
+        item.button?.target = self
+        item.button?.action = #selector(statusItemClicked(_:))
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         statusItem = item
+
+        popover.behavior = .transient
+        popover.contentSize = NSSize(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
+        popover.contentViewController = NSHostingController(rootView: PopoverRootView(store: store))
+    }
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        let wantsMenu = event?.type == .rightMouseUp || (event?.modifierFlags.contains(.control) ?? false)
+        if wantsMenu {
+            popover.performClose(nil)
+            showMenu()
+        } else if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            store.refresh()
+            popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    /// Assigning the menu just for the click is the standard way to get both a
+    /// left-click action and a right-click menu on a status item.
+    private func showMenu() {
+        guard let item = statusItem else { return }
+        item.menu = makeMenu()
+        item.button?.performClick(nil)
+        item.menu = nil
     }
 
     private func makeMenu() -> NSMenu {
@@ -83,6 +120,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Double-Click Opens Claude Code", #selector(chooseTerminal), tag: .doubleClickTerminal))
         menu.addItem(item("Double-Click Opens Claude App", #selector(chooseDesktopApp), tag: .doubleClickApp))
         menu.addItem(item("Launch at Login", #selector(toggleLaunchAtLogin), tag: .launchAtLogin))
+        menu.addItem(.separator())
+        menu.addItem(item("Auto-Start New Session", #selector(toggleAutoSession), tag: .autoSession))
+        menu.addItem(item("Set Trigger Message…", #selector(editTriggerMessage)))
+        menu.addItem(item("Send Trigger Now", #selector(sendTriggerNow)))
+        let last = NSMenuItem(title: "No auto-start yet", action: nil, keyEquivalent: "")
+        last.tag = Tag.lastAutoSession.rawValue
+        last.isEnabled = false
+        menu.addItem(last)
         menu.addItem(.separator())
         menu.addItem(item("Quit Claude Widget", #selector(quit), key: "q"))
         return menu
@@ -124,29 +169,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return rows
     }
 
-    /// Rebuilds the greyed-out usage rows at the top of the menu each time it opens.
-    private func refreshUsageRows(in menu: NSMenu) {
-        for existing in menu.items where AppDelegate.usageTags.contains(existing.tag) {
-            menu.removeItem(existing)
-        }
-        let rows = usageRows()
-        for (index, title) in rows.enumerated() {
-            let row = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            row.tag = AppDelegate.usageTags.lowerBound + index
-            row.isEnabled = false
-            menu.insertItem(row, at: index)
-        }
-        let divider = NSMenuItem.separator()
-        divider.tag = AppDelegate.usageTags.upperBound - 1
-        menu.insertItem(divider, at: rows.count)
-    }
-
     private func updateTooltip() {
         statusItem?.button?.toolTip = usageRows().joined(separator: "\n")
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
-        refreshUsageRows(in: menu)
         let terminal = ClaudeLauncher.preferredTarget == .terminal
         for menuItem in menu.items {
             switch Tag(rawValue: menuItem.tag) {
@@ -158,9 +185,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 menuItem.state = terminal ? .off : .on
             case .launchAtLogin:
                 menuItem.state = LaunchAtLogin.isEnabled ? .on : .off
+            case .autoSession:
+                menuItem.state = AutoSessionRunner.isEnabled ? .on : .off
+            case .lastAutoSession:
+                menuItem.title = lastAutoSessionTitle()
             case nil:
                 break
             }
+        }
+    }
+
+    // MARK: - Auto-start
+
+    private func evaluateAutoSession() {
+        autoSession.startIfNeeded(
+            snapshot: store.snapshot,
+            readingFailed: store.lastError != nil,
+            now: Date()
+        ) { [weak self] in self?.store.refresh() }
+    }
+
+    private func lastAutoSessionTitle() -> String {
+        guard let at = AutoSessionRunner.lastAttempt else { return "No auto-start yet" }
+        let time = Formatters.resetClock(at, now: Date()) ?? ""
+        let result = AutoSessionRunner.lastResult ?? ""
+        return "Last auto-start: \(time) · \(result)"
+    }
+
+    @objc private func toggleAutoSession() {
+        AutoSessionRunner.isEnabled.toggle()
+        if AutoSessionRunner.isEnabled {
+            evaluateAutoSession()
+        }
+    }
+
+    @objc private func sendTriggerNow() {
+        autoSession.run { [weak self] in self?.store.refresh() }
+    }
+
+    @objc private func editTriggerMessage() {
+        let alert = NSAlert()
+        alert.messageText = "Trigger message"
+        alert.informativeText = "Sent as claude -p \"…\" when your 5-hour session ends, to start the next one."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        field.stringValue = AutoSessionRunner.message
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            AutoSessionRunner.message = field.stringValue
         }
     }
 

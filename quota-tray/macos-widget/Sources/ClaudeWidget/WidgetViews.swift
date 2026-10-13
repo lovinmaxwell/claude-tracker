@@ -103,7 +103,7 @@ struct WidgetContent: View {
                     RingsOnlyView(model: model)
                         .frame(width: WidgetLayout.rest.width, height: WidgetLayout.rest.height)
                         .opacity(hover.expanded ? 0 : 1)
-                    CardView(model: model, now: now)
+                    CardView(model: model, now: now, hint: "Double-click opens Claude Code")
                         .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
                         .opacity(hover.expanded ? 1 : 0)
                 }
@@ -128,6 +128,8 @@ struct RingsOnlyView: View {
 struct CardView: View {
     let model: WidgetModel
     let now: Date
+    /// One line of guidance in the footer; differs between the widget and the menu bar popover.
+    let hint: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -156,7 +158,7 @@ struct CardView: View {
             .frame(maxHeight: .infinity)
 
             HStack {
-                Text("Double-click opens Claude Code")
+                Text(hint)
                 Spacer()
                 Text(model.age.map { "Updated \($0)" } ?? "")
                     .monospacedDigit()
@@ -257,5 +259,30 @@ struct RingStack: View {
                 .foregroundColor(.secondary)
         }
         .frame(width: size, height: size)
+    }
+}
+
+/// The menu bar icon's popover: the very same card as the floating widget.
+struct PopoverRootView: View {
+    @ObservedObject var store: UsageStore
+
+    var body: some View {
+        TimelineView(.periodic(from: Date(), by: 15)) { context in
+            PopoverContent(store: store, now: context.date)
+        }
+    }
+}
+
+struct PopoverContent: View {
+    @ObservedObject var store: UsageStore
+    let now: Date
+
+    private var model: WidgetModel {
+        WidgetModel(snapshot: store.snapshot, lastError: store.lastError, now: now)
+    }
+
+    var body: some View {
+        CardView(model: model, now: now, hint: "Right-click the icon for options")
+            .frame(width: WidgetLayout.card.width, height: WidgetLayout.card.height)
     }
 }
