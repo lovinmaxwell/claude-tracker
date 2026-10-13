@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <!-- WPF and WinForms both define Application, Button, Color... so every file imports explicitly. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>ClaudeWidget</RootNamespace>
+    <AssemblyName>ClaudeWidget</AssemblyName>
+    <Version>1.0.0</Version>
+    <Product>Claude Widget</Product>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Lets the project restore and compile on Linux/macOS (CI, review); it only runs on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <!-- `dotnet publish -c Release -r win-x64` gives one self-contained exe: no installer, no runtime, no admin. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ClaudeUsageCore\ClaudeUsageCore.csproj" />
+  </ItemGroup>
+
+</Project>

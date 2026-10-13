@@ -1,0 +1,85 @@
+name: Claude Widget (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "quota-tray/windows-widget/**"
+      - ".github/workflows/claude-widget-windows.yml"
+  pull_request:
+    paths:
+      - "quota-tray/windows-widget/**"
+      - ".github/workflows/claude-widget-windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Portable ClaudeWidget.exe
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: quota-tray/windows-widget
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Test the usage core
+        run: dotnet test tests/ClaudeUsageCore.Tests -c Release
+
+      - name: Publish single-file exe
+        run: dotnet publish src/ClaudeWidget -c Release -r win-x64 -o dist
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          Remove-Item dist/*.pdb -ErrorAction SilentlyContinue
+          $hash = (Get-FileHash dist/ClaudeWidget.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  ClaudeWidget.exe" | Out-File -Encoding ascii dist/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-widget-windows
+          path: |
+            quota-tray/windows-widget/dist/ClaudeWidget.exe
+            quota-tray/windows-widget/dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: claude-widget-windows
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: claude-widget-windows-latest
+          name: Claude Widget for Windows
+          body: |
+            Portable Claude usage widget for Windows 10/11. **No installer, no admin rights, nothing to install.**
+
+            1. Download `ClaudeWidget.exe` and put it anywhere (for example your Documents folder).
+            2. Double-click it. The first time, Windows SmartScreen may say "Unknown publisher" because the file is not code-signed: choose **More info → Run anyway** (or right-click the file → Properties → **Unblock**).
+            3. A faded ring appears at the top right of your screen. Hover it for the full card, drag to move it, double-click to open Claude Code. Right-click it or its tray icon for options.
+
+            It reads your Claude Code sign-in from `%USERPROFILE%\.claude\.credentials.json` and talks only to Anthropic. Settings live in `%APPDATA%\ClaudeWidget`. To remove it: turn off **Launch at Login** in the tray menu, quit, and delete the exe and that folder.
+
+            Verify the download against `SHA256SUMS.txt`.
+          files: |
+            dist/ClaudeWidget.exe
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          make_latest: false
+          target_commitish: ${{ github.sha }}
