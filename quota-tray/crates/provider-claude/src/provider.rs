@@ -88,10 +88,49 @@ fn read_credentials_blob() -> Result<String, CredentialError> {
         .map_err(|e| CredentialError::Missing(format!("{}: {e}", path.display())))
 }
 
+/// Claude Code stores its sign-in under the login user's account. Other tools
+/// can create a second item with the same service name and another account
+/// (e.g. `unknown`, holding only `mcpOAuth`); an unfiltered lookup may return
+/// that one. Ask for the user's own account first, then fall back to any item,
+/// and only accept a blob that actually carries `claudeAiOauth`.
 #[cfg(target_os = "macos")]
 fn read_keychain_blob() -> Result<String, CredentialError> {
-    let output = Command::new("/usr/bin/security")
-        .args(["find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"])
+    let mut accounts: Vec<Option<String>> = Vec::new();
+    if let Ok(user) = std::env::var("USER") {
+        if !user.is_empty() {
+            accounts.push(Some(user));
+        }
+    }
+    accounts.push(None);
+
+    let mut first_err: Option<CredentialError> = None;
+    for account in accounts {
+        match read_keychain_item(account.as_deref()) {
+            Ok(blob) if parse_claude_credentials_json(&blob).is_ok() => return Ok(blob),
+            Ok(_) => {
+                first_err.get_or_insert_with(|| {
+                    CredentialError::Malformed("Keychain item has no claudeAiOauth".into())
+                });
+            }
+            Err(e) => {
+                first_err.get_or_insert(e);
+            }
+        }
+    }
+    Err(first_err.unwrap_or_else(|| {
+        CredentialError::Missing(format!("no Keychain item for {KEYCHAIN_SERVICE}"))
+    }))
+}
+
+#[cfg(target_os = "macos")]
+fn read_keychain_item(account: Option<&str>) -> Result<String, CredentialError> {
+    let mut cmd = Command::new("/usr/bin/security");
+    cmd.args(["find-generic-password", "-s", KEYCHAIN_SERVICE]);
+    if let Some(account) = account {
+        cmd.args(["-a", account]);
+    }
+    let output = cmd
+        .arg("-w")
         .output()
         .map_err(|e| CredentialError::Missing(e.to_string()))?;
 

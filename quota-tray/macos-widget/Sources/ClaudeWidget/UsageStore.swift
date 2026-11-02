@@ -33,10 +33,38 @@ enum CredentialReader {
         throw keychainError ?? UsageError.credentialsMissing
     }
 
+    /// Claude Code saves its sign-in under the login user's account. Another tool can
+    /// create a second item with the same service and a different account (e.g. `unknown`,
+    /// holding only `mcpOAuth`), which an unfiltered lookup may return. Ask for the user's
+    /// own account first, then any item, and accept only a blob that has `claudeAiOauth`.
     private static func readKeychain() throws -> Data {
+        var firstError: UsageError?
+        for account in [NSUserName() as String?, nil] {
+            do {
+                let blob = try readKeychainItem(account: account)
+                if hasClaudeOAuth(blob) { return blob }
+                firstError = firstError ?? UsageError.credentialsMalformed
+            } catch let error as UsageError {
+                // A hung or denied Keychain prompt won't improve on a second try.
+                if case .timedOut = error { throw error }
+                firstError = firstError ?? error
+            }
+        }
+        throw firstError ?? UsageError.credentialsMissing
+    }
+
+    private static func hasClaudeOAuth(_ data: Data) -> Bool {
+        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+        return root["claudeAiOauth"] is [String: Any]
+    }
+
+    private static func readKeychainItem(account: String?) throws -> Data {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: securityBinary)
-        process.arguments = ["find-generic-password", "-s", keychainService, "-w"]
+        var arguments = ["find-generic-password", "-s", keychainService]
+        if let account { arguments += ["-a", account] }
+        arguments.append("-w")
+        process.arguments = arguments
         let output = Pipe()
         let errors = Pipe()
         process.standardOutput = output
